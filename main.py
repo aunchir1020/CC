@@ -720,8 +720,14 @@ if __name__ == "__main__":
     print("   Run: python -m uvicorn api:app --reload --port 8000\n")
     
     # Get server configuration from environment variables
+    # Render provides PORT environment variable - use it if available
     server_name = os.getenv("GRADIO_SERVER_NAME", "0.0.0.0")
-    server_port = int(os.getenv("GRADIO_SERVER_PORT", "7860"))
+    # Use Render's PORT if available, otherwise use GRADIO_SERVER_PORT or default 7860
+    render_port = os.getenv("PORT")
+    if render_port:
+        server_port = int(render_port)
+    else:
+        server_port = int(os.getenv("GRADIO_SERVER_PORT", "7860"))
     inbrowser = os.getenv("GRADIO_INBROWSER", "false").lower() == "true"
     
     demo.queue()

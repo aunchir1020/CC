@@ -21,7 +21,8 @@ fi
 echo "✅ Backend is running (PID: $BACKEND_PID)"
 
 # Start Gradio frontend
-echo "🎨 Starting Gradio frontend on port 7860..."
+# Render sets PORT environment variable - Gradio will use it automatically
+echo "🎨 Starting Gradio frontend..."
 python main.py
 
 # Keep container running
