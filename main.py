@@ -558,14 +558,14 @@ def retry_last_response(chat_history):
                 except json.JSONDecodeError:
                     continue
         
-        if not accumulated_response:
-            # If stopped early with no content, leave blank instead of error message
-            if stopped:
-                chat_history[last_assistant_idx]["content"] = ""
+        # After streaming completes, only show error if we have no content
+        if not accumulated_response and not stopped:
+            # No content received and wasn't stopped - show error
+            chat_history[last_assistant_idx]["content"] = "No response received from the model."
+            yield chat_history
         else:
-                chat_history[last_assistant_idx]["content"] = "No response received from the model."
-        
-        yield chat_history
+            # Content is already set from streaming (line 555), just yield final state
+            yield chat_history
             
     except Exception as e:
         print(f"❌ Error in retry: {e}")
