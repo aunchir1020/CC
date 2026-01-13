@@ -1,0 +1,39 @@
+/* Loading spinner styling */
+.loading-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+}
+
+.loading-dots span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #d1d5db;
+    animation: dot-fade 1.4s ease-in-out infinite;
+}
+
+.loading-dots span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.loading-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.loading-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes dot-fade {
+    0%, 60%, 100% {
+        opacity: 0.3;
+        background-color: #d1d5db;
+    }
+    30% {
+        opacity: 1;
+        background-color: #9ca3af;
+    }
+}

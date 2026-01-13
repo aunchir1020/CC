@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files (will be set in deployment)
+.env
+.env.local
+
+# Database (will be created in container)
+*.db
+*.sqlite
+*.sqlite3
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git
+.git/
+.gitignore
+
+# Documentation (but keep docker/README.md for deployment docs)
+*.md
+README.md
+!docker/*.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

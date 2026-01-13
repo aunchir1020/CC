@@ -1,0 +1,733 @@
+import gradio as gr
+import requests
+import json
+import uuid
+import os
+import threading
+import gc
+import traceback
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Backend API URL - use environment variable or default to localhost
+BASE_API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_URL = f"{BASE_API_URL}/chat/"
+RETRY_API_URL = f"{BASE_API_URL}/chat/retry/"
+EDIT_API_URL = f"{BASE_API_URL}/chat/edit/"
+
+# Store session ID globally
+session_id = str(uuid.uuid4())
+
+# Global variable to track active streaming response for cancellation
+active_stream_response = None
+STOP_STREAMING = False
+STREAMING_LOCK = threading.Lock()
+# Store stop events to track cancellation state for each streaming request
+frontend_stop_events = {}
+frontend_stop_lock = threading.Lock()
+
+# Load external CSS file
+def load_css():
+    """Load all CSS files from the css folder and combine them."""
+    css_dir = os.path.join(os.path.dirname(__file__), 'css')
+    css_files = [
+        'layout.css',
+        'borders.css',
+        'messages.css',
+        'mic_recording.css',
+        'buttons.css',
+        'loading_dots.css',
+        'edit_mode.css'
+    ]
+    
+    combined_css = []
+    for css_file in css_files:
+        css_path = os.path.join(css_dir, css_file)
+        if os.path.exists(css_path):
+            with open(css_path, 'r', encoding='utf-8') as f:
+                combined_css.append(f.read())
+    
+    return '\n\n'.join(combined_css)
+
+# Load external JavaScript files and inject session_id
+def load_js():
+    js_content_parts = []
+    
+    # Suppress browser extension errors (message channel errors)
+    # This is a common error from browser extensions trying to communicate with the page
+    suppress_extension_errors = """
+    (function() {
+        // Suppress browser extension message channel errors
+        window.addEventListener('unhandledrejection', function(event) {
+            if (event.reason && typeof event.reason === 'string') {
+                if (event.reason.includes('message channel') || 
+                    event.reason.includes('extension') ||
+                    event.reason.includes('chrome-extension') ||
+                    event.reason.includes('moz-extension')) {
+                    event.preventDefault(); // Suppress the error
+                    return;
+                }
+            }
+            // Log other unhandled rejections for debugging (optional)
+            // console.warn('Unhandled promise rejection:', event.reason);
+        });
+        
+        // Also suppress error events from extensions
+        window.addEventListener('error', function(event) {
+            if (event.message && (
+                event.message.includes('message channel') ||
+                event.message.includes('extension') ||
+                event.message.includes('chrome-extension')
+            )) {
+                event.preventDefault();
+                return false;
+            }
+        }, true);
+    })();
+    """
+    js_content_parts.append(suppress_extension_errors)
+    
+    # Set custom favicon with Chattie emoji 💬
+    set_favicon = """
+    (function() {
+        // Create SVG favicon with emoji
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💬</text></svg>';
+        const faviconUrl = 'data:image/svg+xml,' + encodeURIComponent(svg);
+        
+        // Remove existing favicon if any
+        const existingFavicons = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+        existingFavicons.forEach(fav => fav.remove());
+        
+        // Create new favicon link
+        const link = document.createElement('link');
+        link.rel = 'icon';
+        link.type = 'image/svg+xml';
+        link.href = faviconUrl;
+        document.head.appendChild(link);
+        
+        // Also set for Apple devices (use a larger size)
+        const appleSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><text y=".9em" font-size="160">💬</text></svg>';
+        const appleFaviconUrl = 'data:image/svg+xml,' + encodeURIComponent(appleSvg);
+        const appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        appleLink.href = appleFaviconUrl;
+        document.head.appendChild(appleLink);
+    })();
+    """
+    js_content_parts.append(set_favicon)
+    
+    # Load JavaScript files from js folder
+    js_dir = os.path.join(os.path.dirname(__file__), 'js')
+    
+    # Load textbox_auto_grow.js
+    textbox_auto_grow_js_path = os.path.join(js_dir, 'textbox_auto_grow.js')
+    if os.path.exists(textbox_auto_grow_js_path):
+        with open(textbox_auto_grow_js_path, 'r', encoding='utf-8') as f:
+            textbox_auto_grow_js = f.read()
+            js_content_parts.append(textbox_auto_grow_js)
+    
+    # Load edit_user_messages.js
+    edit_js_path = os.path.join(js_dir, 'edit_user_messages.js')
+    if os.path.exists(edit_js_path):
+        with open(edit_js_path, 'r', encoding='utf-8') as f:
+            edit_js = f.read()
+            edit_js = edit_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            js_content_parts.append(edit_js)
+
+    # Load stop_messages.js
+    stop_js_path = os.path.join(js_dir, 'stop_messages.js')
+    if os.path.exists(stop_js_path):
+        with open(stop_js_path, 'r', encoding='utf-8') as f:
+            stop_js = f.read()
+            stop_js = stop_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            js_content_parts.append(stop_js)
+
+    # Load mic_recording.js
+    mic_js_path = os.path.join(js_dir, 'mic_recording.js')
+    if os.path.exists(mic_js_path):
+        with open(mic_js_path, 'r', encoding='utf-8') as f:
+            mic_js = f.read()
+            # mic_recording.js doesn't use SESSION_ID, so no replacement needed
+            js_content_parts.append(mic_js)
+    
+    return '\n\n'.join(js_content_parts)
+
+def check_input(text):
+    """Check if input is empty and return button state."""
+    return gr.update(interactive=bool(text.strip()))
+
+# Send user message to FastAPI backend and stream the response
+# Returns: (response_text, is_stopped) as a tuple
+def chat_with_llm(message, history):
+    global active_stream_response, STOP_STREAMING
+    
+    if not message.strip():
+        yield ("Please enter a message.", False)
+        return
+    
+    # Create stop event for this session
+    stop_event = threading.Event()
+    with frontend_stop_lock:
+        frontend_stop_events[session_id] = stop_event
+    
+    # Reset stop flag
+    with STREAMING_LOCK:
+        STOP_STREAMING = False
+    
+    payload = {
+        "session_id": session_id,
+        "message": message
+    }
+    
+    try:
+        response = requests.post(
+            API_URL,
+            json=payload,
+            stream=True,
+            timeout=60
+        )
+        
+        # Store response for potential cancellation
+        with STREAMING_LOCK:
+            active_stream_response = response
+        
+        if response.status_code != 200:
+            yield (f"Error: API returned status code {response.status_code}", False)
+            with STREAMING_LOCK:
+                active_stream_response = None
+            with frontend_stop_lock:
+                frontend_stop_events.pop(session_id, None)
+            return
+        
+        accumulated_response = ""
+        stopped = False
+        
+        try:
+            # Read streaming response line by line
+            # The backend will send a "stopped" message when stop is clicked
+            for line in response.iter_lines(decode_unicode=False):
+                # Check if streaming was cancelled (check stop event first)
+                if stop_event.is_set():
+                    stopped = True
+                    accumulated_response = accumulated_response.strip() if accumulated_response else ""
+                    break
+                
+                with STREAMING_LOCK:
+                    if STOP_STREAMING:
+                        stopped = True
+                        accumulated_response = accumulated_response.strip() if accumulated_response else ""
+                        break
+                    
+                if line:
+                    try:
+                        data = json.loads(line.decode('utf-8'))
+                        
+                        if "error" in data:
+                            # Return error message without "Error:" prefix - respond function will handle display
+                            error_msg = data['error']
+                            yield (error_msg, False)
+                            return
+                        
+                        # Check if backend stopped the stream - this is the main detection point
+                        # The backend sends this when stop button is clicked
+                        if "stopped" in data and data["stopped"]:
+                            stopped = True
+                            if "partial_content" in data:
+                                accumulated_response = data["partial_content"]
+                            else:
+                                accumulated_response = accumulated_response.strip() if accumulated_response else ""
+                            # Break immediately - don't wait for more data
+                            break
+                        
+                        if "token" in data:
+                            accumulated_response += data["token"]
+                            yield (accumulated_response, False)
+                            
+                    except json.JSONDecodeError:
+                        continue
+                    except Exception as e:
+                        # If connection was closed or interrupted, stop gracefully
+                        error_str = str(e).lower()
+                        if "connection" in error_str or "closed" in error_str or "broken" in error_str or "abort" in error_str:
+                            stopped = True
+                            accumulated_response = accumulated_response.strip() if accumulated_response else ""
+                            break
+                        yield (f"Error processing response: {str(e)}", False)
+                        return
+        except requests.exceptions.ChunkedEncodingError:
+            # Connection closed/chunked encoding error - likely from stop
+            stopped = True
+            accumulated_response = accumulated_response.strip() if accumulated_response else ""
+        except requests.exceptions.ConnectionError:
+            # Connection was closed
+            stopped = True
+            accumulated_response = accumulated_response.strip() if accumulated_response else ""
+        except Exception as e:
+            # Other errors - might be from connection close
+            error_str = str(e).lower()
+            if "connection" in error_str or "closed" in error_str or "broken" in error_str:
+                stopped = True
+                accumulated_response = accumulated_response.strip() if accumulated_response else ""
+            else:
+                yield (f"Error: {str(e)}", False)
+            return
+        
+        # Final yield with accumulated content
+        # Check if there got an error message (from backend error response)
+        if accumulated_response and (
+            accumulated_response.startswith("Conversation too long") or
+            accumulated_response.startswith("Rate limit") or
+            accumulated_response.startswith("API quota") or
+            accumulated_response.startswith("OpenAI API error") or
+            "conversation too long" in accumulated_response.lower() or
+            "rate limit" in accumulated_response.lower()
+        ):
+            # This is an error - mark it so respond function can handle it
+            yield (accumulated_response, False)  # is_stopped=False but it's an error
+        elif accumulated_response:
+            yield (accumulated_response, stopped)
+        elif not stopped:
+            yield ("No response received from the model.", stopped)
+        # If stopped and no content, yield empty string to leave bot message blank (no error)
+        elif stopped and not accumulated_response:
+            yield ("", stopped)
+            
+    except requests.exceptions.RequestException as e:
+        # Handle connection errors gracefully (might be from stop)
+        error_str = str(e).lower()
+        if "connection" in error_str or "closed" in error_str or "broken" in error_str:
+            # Connection was closed - might be from stop
+            if accumulated_response:
+                yield (accumulated_response, True)
+            else:
+                # If stopped early with no content, leave blank instead of error message
+                yield ("", True)
+        else:
+            with STREAMING_LOCK:
+                active_stream_response = None
+            with frontend_stop_lock:
+                frontend_stop_events.pop(session_id, None)
+            yield (f"Connection error: {str(e)}\n\nMake sure the FastAPI backend is running on http://localhost:8000", False)
+    except Exception as e:
+        with STREAMING_LOCK:
+            active_stream_response = None
+        with frontend_stop_lock:
+            frontend_stop_events.pop(session_id, None)
+        yield (f"Unexpected error: {str(e)}", False)
+    finally:
+        # Clean up - always close the connection and release resources
+        try:
+            if 'response' in locals() and response:
+                response.close()
+                # Force close the underlying connection
+                if hasattr(response, 'raw') and response.raw:
+                    try:
+                        response.raw.close()
+                    except:
+                        pass
+        except:
+            pass
+        
+        # Clear response reference
+        with STREAMING_LOCK:
+            active_stream_response = None
+            if 'stopped' in locals() and stopped:
+                STOP_STREAMING = False
+        
+        # Clean up stop event
+        with frontend_stop_lock:
+            frontend_stop_events.pop(session_id, None)
+        
+        # Force garbage collection to free memory
+        gc.collect()
+
+# Generate response
+def respond(message, chat_history):
+    chat_history = chat_history or []
+
+    # Add user message
+    chat_history.append({
+        "role": "user",
+        "content": message
+    })
+    yield chat_history
+
+    # Add empty assistant message with loading marker (three dots)
+    chat_history.append({
+        "role": "assistant",
+        "content": '<span class="loading-dots"><span></span><span></span><span></span></span>'
+    })
+    yield chat_history
+
+    # Stream response and replace spinner with actual content
+    first_token = True
+    stopped = False
+    error_occurred = False
+    
+    try:
+        for partial, is_stopped in chat_with_llm(message, chat_history):
+            if is_stopped:
+                stopped = is_stopped
+                break  # Stop streaming loop if stopped
+            
+            # Safety check: ensure chat_history has assistant message
+            if len(chat_history) == 0 or chat_history[-1]["role"] != "assistant":
+                # Add assistant message if missing
+                chat_history.append({
+                    "role": "assistant",
+                    "content": ""
+                })
+            
+            # Check if this is an error message (from backend error response)
+            # Backend errors are detected by checking for common error patterns
+            is_error = partial and (
+                partial.startswith("Conversation too long") or
+                partial.startswith("Rate limit") or
+                partial.startswith("API quota") or
+                partial.startswith("OpenAI API error") or
+                "conversation too long" in partial.lower() or
+                "rate limit" in partial.lower() or
+                "quota exceeded" in partial.lower() or
+                "context length" in partial.lower()
+            )
+            
+            if is_error:
+                error_occurred = True
+                chat_history[-1]["content"] = partial.strip()
+                yield chat_history
+                break
+            
+            if first_token and partial and partial.strip():
+                # Replace spinner marker with actual content
+                chat_history[-1]["content"] = partial.strip()
+                first_token = False
+            elif not first_token:
+                chat_history[-1]["content"] = partial
+            elif first_token and not partial and stopped:
+                # If stopped early with no content, leave blank (remove loading dots)
+                chat_history[-1]["content"] = ""
+                first_token = False
+            
+            # During streaming, keep yielding updates
+            yield chat_history
+    except Exception as e:
+        # Handle any unexpected errors in the streaming loop
+        error_occurred = True
+        traceback.print_exc()  # Print full traceback for debugging
+        # Ensure assistant message exists before updating
+        if len(chat_history) == 0 or chat_history[-1]["role"] != "assistant":
+            chat_history.append({
+                "role": "assistant",
+                "content": f"An error occurred: {str(e)}"
+            })
+        else:
+            chat_history[-1]["content"] = f"An error occurred: {str(e)}"
+        yield chat_history
+        return
+        
+    if not error_occurred:
+        yield chat_history  # Streaming finished normally
+
+def submit_and_respond_welcome(message, history, started):
+    try:
+        if not message.strip():
+            return "", history, started, gr.update(), gr.update(), gr.update()
+
+        # Ensure history is a list
+        if history is None:
+            history = []
+
+        started = True
+        first_yield = True
+
+        for updated_history in respond(message, history):
+            if first_yield:
+                yield (
+                    "",                      # clear welcome textbox
+                    updated_history,         # chatbot
+                    started,
+                    gr.update(visible=False),# hide welcome_section
+                    gr.update(visible=True), # show chat_section
+                    gr.update(visible=True), # SHOW input_chat (bottom)
+                )
+                first_yield = False
+            else:
+                yield "", updated_history, started, gr.update(), gr.update(), gr.update()
+    except Exception as e:
+        # Catch any errors and return error message
+        traceback.print_exc()
+        error_msg = f"Error: {str(e)}"
+        if history is None:
+            history = []
+        history.append({"role": "assistant", "content": error_msg})
+        yield "", history, True, gr.update(), gr.update(), gr.update()
+
+def submit_and_respond_chat(message, history, started):
+    try:
+        if not message.strip():
+            return "", history
+        
+        # Ensure history is a list
+        if history is None:
+            history = []
+        
+        # Normal new message flow
+        for updated_history in respond(message, history):
+            yield "", updated_history
+    except Exception as e:
+        # Catch any errors and return error message
+        traceback.print_exc()
+        error_msg = f"Error: {str(e)}"
+        # To return valid history format
+        if history is None:
+            history = []
+        history.append({"role": "assistant", "content": error_msg})
+        yield "", history
+
+# Retry generating the last bot response
+def retry_last_response(chat_history):
+    if not chat_history or len(chat_history) < 2:
+        return chat_history or []
+    
+    # Make a copy to avoid mutating the original
+    chat_history = list(chat_history) if chat_history else []
+    
+    # Find the last assistant message index
+    last_assistant_idx = None
+    for i in range(len(chat_history) - 1, -1, -1):
+        if chat_history[i]["role"] == "assistant":
+            last_assistant_idx = i
+            break
+    
+    if last_assistant_idx is None:
+        return chat_history
+    
+    # Show loading
+    chat_history[last_assistant_idx] = {
+        "role": "assistant",
+        "content": '<span class="loading-dots"><span></span><span></span><span></span></span>'
+    }
+    yield chat_history
+    
+    # Call retry API
+    payload = {"session_id": session_id, "message": ""}
+    
+    try:
+        response = requests.post(RETRY_API_URL, json=payload, stream=True, timeout=60)
+        
+        if response.status_code != 200:
+            chat_history[last_assistant_idx]["content"] = f"Error: API returned status code {response.status_code}"
+            yield chat_history
+            return
+        
+        accumulated_response = ""
+        first_token = True
+        stopped = False
+        
+        for line in response.iter_lines():
+            if line:
+                try:
+                    data = json.loads(line.decode('utf-8'))
+                    
+                    if "error" in data:
+                        error_msg = data['error']
+                        # Display error message in bot message
+                        chat_history[last_assistant_idx]["content"] = error_msg
+                        yield chat_history
+                        return
+                    
+                    # Check if backend stopped the stream
+                    if "stopped" in data and data["stopped"]:
+                        stopped = True
+                        if "partial_content" in data:
+                            accumulated_response = data["partial_content"]
+                        break
+                    
+                    if "token" in data:
+                        if first_token and data["token"].strip():
+                            accumulated_response = data["token"].strip()
+                            first_token = False
+                        else:
+                            accumulated_response += data["token"]
+                        
+                        chat_history[last_assistant_idx]["content"] = accumulated_response
+                        yield chat_history
+                        
+                except json.JSONDecodeError:
+                    continue
+        
+        if not accumulated_response:
+            # If stopped early with no content, leave blank instead of error message
+            if stopped:
+                chat_history[last_assistant_idx]["content"] = ""
+        else:
+                chat_history[last_assistant_idx]["content"] = "No response received from the model."
+        
+        yield chat_history
+            
+    except Exception as e:
+        print(f"❌ Error in retry: {e}")
+        traceback.print_exc()
+        chat_history[last_assistant_idx]["content"] = f"Error: {str(e)}"
+        yield chat_history
+
+# Load CSS and JS from external files
+custom_css = load_css()
+custom_js = load_js()
+
+# Create Gradio interface
+with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
+    # Logo
+    gr.HTML("""
+        <div id="logo-container">
+            <div id="logo-icon">💬</div>
+            <h1 id="logo-text">Chattie</h1>
+        </div>
+    """)
+    
+    # Welcome section
+    welcome_section = gr.Column(visible=True, elem_id="welcome-container")
+    with welcome_section:
+        # Welcome message
+        gr.HTML("""
+            <div id="welcome-message">
+                <strong>Hello! I'm Chattie, your AI assistant.</strong><br/>
+                <span style="font-size: 18px;">Ask me anything and I'll help you out!</span>
+            </div>
+        """)
+
+        # Welcome input
+        input_welcome = gr.Column(elem_id="input-wrapper-welcome")
+        with input_welcome:
+            with gr.Row(elem_id="input-container"):
+                msg_welcome = gr.Textbox(
+                    placeholder="How can I help you today?",
+                    show_label=False,
+                    container=False,
+                    elem_classes=["input-box"],
+                    lines=1,
+                    max_lines=6,
+                    scale=1
+                )
+                mic_btn_welcome = gr.Button(
+                    "",
+                    elem_id="mic-button",
+                    size="sm",
+                    interactive=True,
+                    scale=0,
+                    min_width=40
+                )
+                submit_btn_welcome = gr.Button(
+                    "",
+                    elem_id="upload-button-welcome",
+                    elem_classes=["upload-button"],
+                    size="sm",
+                    interactive=False,
+                    scale=0,
+                    min_width=40
+                )
+
+    # Chat section
+    chat_section = gr.Column(visible=False, elem_id="chatbot-container")
+    with chat_section:
+        chatbot = gr.Chatbot(
+            height=None,
+            show_label=False,
+            container=False
+        )
+
+    # Chat input
+    input_chat = gr.Column(visible=False, elem_id="input-wrapper-chat")
+    with input_chat:
+        with gr.Row(elem_id="input-container"):
+            msg_chat = gr.Textbox(
+                placeholder="How can I help you today?",
+                show_label=False,
+                container=False,
+                elem_classes=["input-box"],
+                lines=1,
+                max_lines=6,
+                scale=1
+            )
+            mic_btn_chat = gr.Button(
+                "",
+                elem_id="mic-button",
+                size="sm",
+                interactive=True,
+                scale=0,
+                min_width=40
+            )
+            submit_btn_chat = gr.Button(
+                "",
+                elem_id="upload-button-chat",
+                elem_classes=["upload-button"],
+                size="sm",
+                interactive=False,
+                scale=0,
+                min_width=40
+            )
+
+    chat_started = gr.State(False)
+    
+    # Enable/disable buttons based on input
+    msg_welcome.change(fn=check_input, inputs=[msg_welcome], outputs=[submit_btn_welcome], queue=False)
+    msg_chat.change(fn=check_input, inputs=[msg_chat], outputs=[submit_btn_chat], queue=False)
+    
+    # Welcome input handlers
+    submit_btn_welcome.click(
+        fn=submit_and_respond_welcome,
+        inputs=[msg_welcome, chatbot, chat_started],
+        outputs=[msg_welcome, chatbot, chat_started, welcome_section, chat_section, input_chat]
+    )
+
+    msg_welcome.submit(
+        fn=submit_and_respond_welcome,
+        inputs=[msg_welcome, chatbot, chat_started],
+        outputs=[msg_welcome, chatbot, chat_started, welcome_section, chat_section, input_chat]
+    )
+
+    # Chat input handlers
+    submit_btn_chat.click(
+        fn=submit_and_respond_chat,
+        inputs=[msg_chat, chatbot, chat_started],
+        outputs=[msg_chat, chatbot]
+    )
+
+    msg_chat.submit(
+        fn=submit_and_respond_chat,
+        inputs=[msg_chat, chatbot, chat_started],
+        outputs=[msg_chat, chatbot]
+    )
+
+    # Retry button handler
+    chatbot.retry(
+        fn=retry_last_response,
+        inputs=[chatbot],
+        outputs=[chatbot]
+    )
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("🚀 Starting Chattie - AI Chat Assistant")
+    print("=" * 60)
+    print(f"📋 Session ID: {session_id}")
+    print("🔗 Backend API: http://localhost:8000")
+    print("🌐 Frontend URL: http://localhost:7860")
+    print("=" * 60)
+    print("\n⚠️  Make sure your FastAPI backend is running!")
+    print("   Run: python -m uvicorn api:app --reload --port 8000\n")
+    
+    # Get server configuration from environment variables
+    server_name = os.getenv("GRADIO_SERVER_NAME", "0.0.0.0")
+    server_port = int(os.getenv("GRADIO_SERVER_PORT", "7860"))
+    inbrowser = os.getenv("GRADIO_INBROWSER", "false").lower() == "true"
+    
+    demo.queue()
+    demo.launch(
+        server_name=server_name,
+        server_port=server_port,
+        share=False,
+        inbrowser=inbrowser,
+    )

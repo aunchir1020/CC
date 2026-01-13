@@ -1,0 +1,23 @@
+# FastAPI Backend
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Gradio Frontend
+gradio>=4.0.0
+
+# OpenAI Integration
+openai>=1.0.0
+tiktoken>=0.5.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# HTTP Requests (for frontend to backend communication)
+requests>=2.31.0
+
+# CORS (included with FastAPI but explicit)
+# pydantic (included with FastAPI)

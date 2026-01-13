@@ -1,0 +1,187 @@
+/* Mic recording styling */
+.recording-ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 100px; /* Leave space for buttons on right */
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px 20px 12px 20px;
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.recording-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    pointer-events: auto;
+}
+
+.recording-animation {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.recording-wave {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 16px;
+    flex: 1;
+    max-width: calc(100% - 100px);
+}
+
+.recording-wave .wave-bar {
+    width: 2px;
+    background-color: #6b7280;
+    border-radius: 1px;
+    animation: wave 1s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+/* Wave bar heights pattern - repeats every 24 bars using nth-child(24n+X) formula */
+/* This pattern repeats for all bars: 1=25=49=73=97=121, 2=26=50=74=98=122, etc. */
+.recording-wave .wave-bar:nth-child(24n+1) { height: 4px; animation-delay: 0s; }
+.recording-wave .wave-bar:nth-child(24n+2) { height: 6px; animation-delay: 0.04s; }
+.recording-wave .wave-bar:nth-child(24n+3) { height: 8px; animation-delay: 0.08s; }
+.recording-wave .wave-bar:nth-child(24n+4) { height: 10px; animation-delay: 0.12s; }
+.recording-wave .wave-bar:nth-child(24n+5) { height: 12px; animation-delay: 0.16s; }
+.recording-wave .wave-bar:nth-child(24n+6) { height: 10px; animation-delay: 0.2s; }
+.recording-wave .wave-bar:nth-child(24n+7) { height: 8px; animation-delay: 0.24s; }
+.recording-wave .wave-bar:nth-child(24n+8) { height: 12px; animation-delay: 0.28s; }
+.recording-wave .wave-bar:nth-child(24n+9) { height: 10px; animation-delay: 0.32s; }
+.recording-wave .wave-bar:nth-child(24n+10) { height: 6px; animation-delay: 0.36s; }
+.recording-wave .wave-bar:nth-child(24n+11) { height: 8px; animation-delay: 0.4s; }
+.recording-wave .wave-bar:nth-child(24n+12) { height: 10px; animation-delay: 0.44s; }
+.recording-wave .wave-bar:nth-child(24n+13) { height: 12px; animation-delay: 0.48s; }
+.recording-wave .wave-bar:nth-child(24n+14) { height: 10px; animation-delay: 0.52s; }
+.recording-wave .wave-bar:nth-child(24n+15) { height: 8px; animation-delay: 0.56s; }
+.recording-wave .wave-bar:nth-child(24n+16) { height: 6px; animation-delay: 0.6s; }
+.recording-wave .wave-bar:nth-child(24n+17) { height: 10px; animation-delay: 0.64s; }
+.recording-wave .wave-bar:nth-child(24n+18) { height: 12px; animation-delay: 0.68s; }
+.recording-wave .wave-bar:nth-child(24n+19) { height: 8px; animation-delay: 0.72s; }
+.recording-wave .wave-bar:nth-child(24n+20) { height: 6px; animation-delay: 0.76s; }
+.recording-wave .wave-bar:nth-child(24n+21) { height: 8px; animation-delay: 0.8s; }
+.recording-wave .wave-bar:nth-child(24n+22) { height: 10px; animation-delay: 0.84s; }
+.recording-wave .wave-bar:nth-child(24n+23) { height: 8px; animation-delay: 0.88s; }
+.recording-wave .wave-bar:nth-child(24n+24) { height: 4px; animation-delay: 0.92s; }
+
+@keyframes wave {
+    0%, 100% {
+        transform: scaleY(0.5);
+        opacity: 0.7;
+    }
+    50% {
+        transform: scaleY(1);
+        opacity: 1;
+    }
+}
+
+.recording-text {
+    color: #374151;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.recording-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.recording-cancel-btn,
+.recording-confirm-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+    width: 32px;
+    height: 32px;
+}
+
+.recording-cancel-btn:hover {
+    background-color: #f3f4f6;
+}
+
+.recording-confirm-btn:hover {
+    background-color: #f3f4f6;
+}
+
+.recording-cancel-btn svg,
+.recording-confirm-btn svg {
+    stroke: black;
+}
+
+/* Cancel button (replaces mic button) - absolute positioned */
+.recording-cancel-btn-absolute {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    transition: opacity 0.2s ease !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    position: absolute !important;
+    right: 55px !important;
+    top: 50% !important;
+    transform: translateY(-52%) !important;
+    z-index: 10 !important;
+    box-shadow: none !important;
+}
+
+.recording-cancel-btn-absolute:hover {
+    opacity: 0.7 !important;
+}
+
+.recording-cancel-btn-absolute svg {
+    stroke: black;
+    pointer-events: none;
+}
+
+.recording-confirm-btn-absolute {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    transition: opacity 0.2s ease !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    position: absolute !important;
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-52%) !important;
+    z-index: 10 !important;
+    box-shadow: none !important;
+}
+
+.recording-confirm-btn-absolute:hover {
+    opacity: 0.7 !important;
+}
+
+.recording-confirm-btn-absolute svg {
+    stroke: black;
+    pointer-events: none;
+}

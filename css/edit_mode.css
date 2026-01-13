@@ -1,0 +1,233 @@
+/* Edit button for user messages - grey pencil icon */
+.edit-user-message-btn {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 8px 10px !important;
+    margin-right: 8px !important;
+    margin-left: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0.7 !important;
+    transition: opacity 0.2s ease, background-color 0.2s ease !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    flex-shrink: 0 !important;
+    order: -1 !important;
+    visibility: visible !important;
+    z-index: 100 !important;
+    position: relative !important;
+}
+
+.edit-user-message-btn:hover {
+    opacity: 1 !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    border-radius: 4px !important;
+}
+
+.edit-user-message-btn svg {
+    width: 20px !important;
+    height: 20px !important;
+    fill: #6b7280 !important;
+    stroke: #6b7280 !important;
+    stroke-width: 2 !important;
+    display: block !important;
+    visibility: visible !important;
+}
+
+.edit-user-message-btn:hover svg {
+    fill: #374151 !important;
+    stroke: #374151 !important;
+}
+
+
+/* Make the flex-wrap.role container a flex container so edit button can be positioned */
+div.flex-wrap.role,
+div[class*="flex-wrap"][class*="role"],
+.message-wrap.user .flex-wrap.role,
+.message-wrap.user div[class*="flex-wrap"] {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+}
+
+/* Ensure edit button is positioned at left, before the message box */
+.message-wrap.user > .edit-user-message-btn,
+.message-wrap.user .edit-user-message-btn,
+div.flex-wrap.role > .edit-user-message-btn,
+div[class*="flex-wrap"][class*="role"] > .edit-user-message-btn {
+    order: -1 !important;
+    flex-shrink: 0 !important;
+    align-self: flex-start !important;
+    margin-top: 15px !important;
+    margin-right: 6px !important;
+    margin-bottom: 0 !important;
+    margin-left: 0 !important;
+    display: flex !important;
+}
+
+/* Editable message styles */
+.editable-message-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 50% !important;
+    margin: 0 auto !important;
+    margin-top: 20px !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+.message.user.editing-message {
+    width: 100% !important;
+    max-width: 50% !important;
+    margin-top: 20px !important;
+}
+
+.editable-message-textarea,
+textarea.editable-message-textarea,
+.message.user.editing-message textarea,
+.editable-message-wrapper textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 90px !important;
+    max-height: 210px !important;
+    padding: 16px 24px 60px 24px !important;
+    border: 2px solid #2563eb !important;
+    border-width: 2px !important;
+    border-style: solid !important;
+    border-color: #2563eb !important;
+    border-radius: 25px !important;
+    font-size: 16px !important;
+    font-family: inherit !important;
+    box-sizing: border-box !important;
+    background: white !important;
+    outline: none !important;
+    color: #1f2937 !important;
+    resize: none !important;
+    line-height: 1.5 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scroll-padding-bottom: 50px !important;
+    margin-top: -12px !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+    filter: none !important;
+}
+
+.editable-message-textarea:focus,
+textarea.editable-message-textarea:focus {
+    border-color: #2563eb !important;
+    border: 2px solid #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+.edit-message-buttons,
+.editable-message-wrapper .edit-message-buttons {
+    position: absolute !important;
+    right: 24px !important;
+    bottom: 20px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 32px !important;
+    z-index: 10 !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.edit-cancel-btn,
+.edit-send-btn,
+.editable-message-wrapper .edit-cancel-btn,
+.editable-message-wrapper .edit-send-btn,
+.edit-message-buttons .edit-cancel-btn,
+.edit-message-buttons .edit-send-btn {
+    padding: 8px 16px !important;
+    border-radius: 20px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    transition: background 0.2s ease !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: auto !important;
+    width: auto !important;
+    height: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.edit-cancel-btn,
+.editable-message-wrapper .edit-cancel-btn,
+.edit-message-buttons .edit-cancel-btn {
+    background: white !important;
+    color: #333 !important;
+    border: 1px solid #d1d5db !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: #d1d5db !important;
+    margin: 0 16px 0 0 !important;
+    padding: 8px 16px !important;
+}
+
+.edit-send-btn,
+.editable-message-wrapper .edit-send-btn,
+.edit-message-buttons .edit-send-btn {
+    border: none !important;
+    margin: 0 !important;
+    padding: 8px 16px !important;
+}
+
+.edit-cancel-btn:hover,
+.editable-message-wrapper .edit-cancel-btn:hover,
+.edit-message-buttons .edit-cancel-btn:hover {
+    background: #f5f5f5 !important;
+}
+
+.edit-send-btn,
+.editable-message-wrapper .edit-send-btn,
+.edit-message-buttons .edit-send-btn {
+    background: #2563eb !important;
+    color: white !important;
+}
+
+.edit-send-btn:hover,
+.editable-message-wrapper .edit-send-btn:hover,
+.edit-message-buttons .edit-send-btn:hover {
+    background: #1d4ed8 !important;
+}
+
+.edit-cancel-btn:disabled,
+.edit-send-btn:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+/* Hide edit and copy buttons when message is being edited */
+.message.user.editing-message ~ * button,
+.message-wrap.user:has(.editing-message) > button:not(.edit-cancel-btn):not(.edit-send-btn),
+.message-wrap.user:has(.editing-message) button[aria-label*="copy"],
+.message-wrap.user:has(.editing-message) button[aria-label*="Copy"],
+.message-wrap.user:has(.editing-message) button[title*="copy"],
+.message-wrap.user:has(.editing-message) button[title*="Copy"],
+.message-wrap.user:has(.editing-message) .edit-user-message-btn,
+.message.user.editing-message ~ * .edit-user-message-btn,
+div.flex-wrap.role:has(.editing-message) > .edit-user-message-btn,
+div.flex-wrap.role:has(.editing-message) button:not(.edit-cancel-btn):not(.edit-send-btn),
+.message-wrap.user:has(.editing-message) button[data-originally-visible="true"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}

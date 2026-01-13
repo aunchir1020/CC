@@ -1,0 +1,69 @@
+/* Remove all borders from chatbot, Gradio components, panels, and containers - comprehensive */
+.chatbot,
+.chatbot *:not(.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn):not(.edit-message-buttons),
+.chatbot > div,
+.chatbot > div > div,
+.chatbot [class*="border"],
+.chatbot [class*="panel"],
+.chatbot [class*="container"],
+.chatbot [style*="border"],
+.chatbot .overflow-y-auto,
+.chatbot [class*="overflow"],
+div[data-testid*="chatbot"],
+div[data-testid*="chatbot"] *:not(.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn):not(.edit-message-buttons),
+div[data-testid*="chatbot"] > div,
+#chatbot-container *:not(.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn):not(.edit-message-buttons),
+#chatbot-container > div,
+#chatbot-container [class*="border"],
+#chatbot-container [class*="panel"],
+[class*="gradio"] [style*="border"],
+[class*="gradio"] [style*="border-color"],
+div[style*="border"]:not(.message):not(.message.user):not(.message.bot):not(.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn),
+*[style*="border-color: rgb"]:not(.message):not(.message.user):not(.message.bot):not(.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn),
+*[style*="border-color: #"]:not(.message):not(.message.user):not(.message.bot):not(.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn),
+.panel,
+.border,
+[class*="border"],
+[class*="panel"],
+[style*="border"],
+[style*="background-color"]:not(.message):not(.message.user):not(.message.bot):not(.message-spacer),
+div[class*="gradio"] [class*="border"],
+div[class*="gradio"] [class*="panel"],
+div[data-testid] [class*="border"],
+*[style*="border-color"]:not(.message):not(.message.user):not(.message.bot):not(.message-spacer):not(.editable-message-textarea):not(textarea.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn),
+*[style*="border-width"]:not(.message):not(.message.user):not(.message.bot):not(.message-spacer):not(.editable-message-textarea):not(textarea.editable-message-textarea):not(.edit-cancel-btn):not(.edit-send-btn) {
+    border: none !important;
+    border-color: transparent !important;
+    border-width: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove backgrounds from chatbot wrapper and overflow containers */
+.chatbot > div,
+.chatbot .overflow-y-auto,
+.chatbot [class*="overflow"] {
+    background: transparent !important;
+}
+
+/* Hide share and clear conversation buttons at top right */
+.chatbot button[title*="share"],
+.chatbot button[title*="Share"],
+.chatbot button[title*="clear"],
+.chatbot button[title*="Clear"],
+.chatbot button[title*="conversation"],
+.chatbot button[title*="Conversation"],
+.chatbot [class*="toolbar"],
+.chatbot [class*="header"],
+.chatbot [class*="actions"],
+.chatbot > div > div:first-child button,
+.chatbot > div:first-child button,
+#chatbot-container button:not(.message button):not(.message-wrap button):not(.edit-cancel-btn):not(.edit-send-btn) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}

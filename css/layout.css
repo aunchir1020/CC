@@ -1,0 +1,323 @@
+/* Main container styling */
+.gradio-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: white !important;
+}
+
+.contain {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.wrap {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Logo styling - fixed at top */
+#logo-container {
+    text-align: left;
+    padding: 20px 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: white !important;
+    z-index: 200 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-bottom: none !important;
+}
+
+#logo-icon {
+    font-size: 24px;
+}
+
+#logo-text {
+    font-size: 20px;
+    font-weight: 600;
+    color: #2563eb;
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Welcome message styling */
+#welcome-container {
+    text-align: center;
+    padding: 130px 40px 0 40px !important;
+    max-width: 800px;
+    margin: 0 auto !important;
+}
+
+#welcome-message {
+    font-size: 28px;
+    color: #374151;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+/* Chat container - scrollable, fixed between logo and input textbox */
+#chatbot-container {
+    padding: 0 60px 0 60px !important;
+    padding-bottom: 207px !important; 
+    min-height: auto !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    position: fixed !important;
+    top: 80px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 207px !important;
+}
+
+/* Only enable scrolling when content exceeds max-height */
+#chatbot-container:not(:has(.message-wrap:nth-child(3))) {
+    overflow-y: visible !important;
+}
+
+/* Chatbot styling - center aligned messages */
+.chatbot {
+    max-width: 100% !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* Remove extra spacing at top of chatbot */
+.chatbot > div:first-child,
+.chatbot > div > div:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Ensure chat area can scroll naturally without box appearance */
+#chatbot-container,
+#chatbot-container * {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+}
+
+#chatbot-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+#chatbot-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#chatbot-container::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+}
+
+#chatbot-container::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Fix mysterious white bar inside chat container */
+#chatbot-container,
+#chatbot-container > div,
+#chatbot-container > div > div,
+#chatbot-container > div > div > div,
+#chatbot-container [class*="row"],
+#chatbot-container [class*="column"] {
+    background: transparent !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#chatbot-container::before,
+#chatbot-container::after {
+    content: none !important;
+    display: none !important;
+}
+
+/* Remove any gradient or colored backgrounds from containers */
+.gradio-container > div:not(#logo-container):not(#welcome-container):not(#chatbot-container):not(#input-wrapper-welcome):not(#input-wrapper-chat) {
+    background: transparent !important;
+}
+
+/* Center alignment for welcome state */
+.center-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+}
+
+/* Hide default Gradio footer */
+footer {
+    display: none !important;
+}
+
+/* Input wrapper - positioning based on chat state */
+#input-wrapper-welcome {
+    padding: 20px 40px !important;
+    background-color: white !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    position: relative !important;
+    display: flex !important;
+    justify-content: center !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove any border/box around input container on welcome page */
+#input-wrapper-welcome > div,
+#input-wrapper-welcome .form,
+#input-wrapper-welcome .wrap {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+#input-wrapper-chat {
+    padding: 20px 40px !important;
+    background-color: transparent !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 0 !important;
+    right: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    z-index: 100 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove any border/box around input container in chat mode */
+#input-wrapper-chat > div,
+#input-wrapper-chat .form,
+#input-wrapper-chat .wrap {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+#input-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Position mic and send buttons at bottom right of textbox (both welcome and chat pages) */
+#input-wrapper-welcome #input-container #mic-button,
+#input-wrapper-chat #input-container #mic-button {
+    position: absolute !important;
+    bottom: 10px !important;
+    right: 50px !important;
+    top: auto !important;
+    transform: none !important;
+    z-index: 10 !important;
+}
+
+#input-wrapper-welcome #input-container #upload-button-welcome,
+#input-wrapper-chat #input-container #upload-button-chat {
+    position: absolute !important;
+    bottom: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    transform: none !important;
+    z-index: 10 !important;
+}
+
+.input-box {
+    width: 100%;
+    position: relative;
+}
+
+.input-box textarea {
+    border-radius: 25px !important;
+    border: 2px solid #e5e7eb !important;
+    padding: 12px 20px 80px 20px !important;
+    font-size: 16px !important;
+    min-height: 90px !important;
+    height: auto !important;
+    max-height: 230px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    line-height: 30px !important;
+    resize: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scroll-padding-bottom: 20px !important;
+    scroll-margin-bottom: 80px !important;
+}
+
+/* Hide scrollbar when content is small (less than 6 lines) - show only when needed */
+.input-box textarea:not(:focus) {
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+.input-box textarea:not(:focus)::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari, Opera */
+}
+
+/* Show scrollbar when focused and content exceeds visible area */
+.input-box textarea:focus {
+    scrollbar-width: thin !important;
+    -ms-overflow-style: auto !important;
+}
+
+.input-box textarea:focus::-webkit-scrollbar {
+    display: block !important;
+    width: 8px !important;
+}
+
+/* Hide scrollbar when not needed (less than 6 lines) */
+.input-box textarea::-webkit-scrollbar {
+    width: 8px;
+}
+
+.input-box textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.input-box textarea::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+}
+
+.input-box textarea::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+.input-box textarea:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+    outline: none !important;
+}

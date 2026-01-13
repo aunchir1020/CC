@@ -1,0 +1,346 @@
+/* Message bubbles styling */
+.message-wrap {
+    display: flex !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-width: 850px !important;
+    margin: 0 auto !important;
+    align-items: flex-start !important;
+}
+
+/* Remove top padding from first message */
+.message-wrap:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+.message-wrap.user {
+    justify-content: flex-end !important;
+    padding-right: 5% !important;
+    padding-left: 5% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+}
+
+.message-wrap.bot {
+    justify-content: flex-start !important;
+    padding-left: 5% !important;
+    padding-right: 5% !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+}
+
+/* Force left alignment for bot messages*/
+.message-wrap.bot,
+.message-wrap.bot *,
+.message.bot,
+.message.bot * {
+    text-align: left !important;
+    justify-content: flex-start !important;
+}
+
+/* Force bot message wrap to use column layout for buttons below */
+.message-wrap.bot,
+.message-wrap.bot[class*="svelte"],
+.message-wrap.bot > *,
+.message-wrap.bot > div,
+[class*="flex-wrap"][class*="bot"]:not([class*="user"]),
+[class*="flex-wrap"][class*="role"][class*="bot"],
+/* Target message-row containers for bot messages */
+[class*="message-row"][class*="bot"],
+[class*="message-row"][class*="bot-row"],
+[class*="message-row"][class*="bubble"][class*="bot"] {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+}
+
+/* User message styling - blue box */
+.message.user {
+    background-color: #bbd6f0 !important;
+    color: #1f2937 !important;
+    border-radius: 18px !important;
+    padding: 16px 20px 0px 20px !important;
+    width: fit-content !important;
+    max-width: 50% !important;
+    min-width: fit-content !important;
+    margin-bottom: 20px !important;
+    flex-shrink: 0 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: pre-wrap !important;
+    line-height: 1.5 !important;
+    display: inline-block !important;
+    vertical-align: top !important;
+    box-sizing: border-box !important;
+}
+
+/* Hide blue background when message is being edited */
+.message.user.editing-message {
+    background-color: transparent !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove ALL spacing from text inside message boxes - aggressive */
+.message.user *,
+.message.user p,
+.message.user div,
+.message.user span,
+.message.user > *,
+.message.user > * > *,
+.message.user > * > * > * {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: inherit !important;
+    display: inline !important;
+}
+
+/* Bot message styling*/
+.message.bot {
+    position: relative;
+    background-color: transparent !important;
+    color: #1f2937 !important;
+    border-radius: 0 !important;
+    padding: 16px 20px 0px 20px !important;
+    padding-left: 20px !important;
+    width: fit-content !important;
+    max-width: 50% !important;
+    min-width: fit-content !important;
+    margin-bottom: -20px !important;
+    margin-left: 0 !important;
+    flex-shrink: 0 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: pre-wrap !important;
+    line-height: 1.5 !important;
+    display: inline-block !important;
+    vertical-align: top !important;
+    box-sizing: border-box !important;
+}
+
+/* Remove extra spacing from text inside message boxes */
+.message.bot *,
+.message.bot p,
+.message.bot div,
+.message.bot span {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: inherit !important;
+}
+
+/* Style action buttons below messages */
+.action-buttons-bottom {
+    display: flex !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+    justify-content: flex-start !important;
+}
+
+/* Ensure bot message action buttons appear below the message, not to the left */
+.message-wrap.bot button[aria-label*="copy"],
+.message-wrap.bot button[aria-label*="Copy"],
+.message-wrap.bot button[title*="copy"],
+.message-wrap.bot button[title*="Copy"],
+.message-wrap.bot button[aria-label*="retry"],
+.message-wrap.bot button[aria-label*="Retry"],
+.message-wrap.bot button[title*="retry"],
+.message-wrap.bot button[title*="Retry"],
+.message-wrap.bot [class*="message-buttons"],
+.message-wrap.bot [class*="message-buttons-left"],
+.message-wrap.bot [class*="message-buttons-right"],
+.message-wrap.bot [class*="action"],
+.message-wrap.bot > button:not(.edit-cancel-btn):not(.edit-send-btn),
+.message-wrap.bot button,
+/* Also target buttons that might be siblings or in flex-wrap containers */
+.message-wrap.bot ~ button[aria-label*="copy"],
+.message-wrap.bot ~ button[aria-label*="Copy"],
+.message-wrap.bot ~ button[title*="copy"],
+.message-wrap.bot ~ button[title*="Copy"],
+.message-wrap.bot ~ button[aria-label*="retry"],
+.message-wrap.bot ~ button[aria-label*="Retry"],
+.message-wrap.bot ~ button[title*="retry"],
+.message-wrap.bot ~ button[title*="Retry"],
+.message-wrap.bot .flex-wrap button[aria-label*="copy"],
+.message-wrap.bot .flex-wrap button[aria-label*="Copy"],
+.message-wrap.bot .flex-wrap button[title*="copy"],
+.message-wrap.bot .flex-wrap button[title*="Copy"],
+.message-wrap.bot .flex-wrap button[aria-label*="retry"],
+.message-wrap.bot .flex-wrap button[aria-label*="Retry"],
+.message-wrap.bot .flex-wrap button[title*="retry"],
+.message-wrap.bot .flex-wrap button[title*="Retry"],
+[class*="flex-wrap"][class*="bot"] button[aria-label*="copy"],
+[class*="flex-wrap"][class*="bot"] button[aria-label*="Copy"],
+[class*="flex-wrap"][class*="bot"] button[title*="copy"],
+[class*="flex-wrap"][class*="bot"] button[title*="Copy"],
+[class*="flex-wrap"][class*="bot"] button[aria-label*="retry"],
+[class*="flex-wrap"][class*="bot"] button[aria-label*="Retry"],
+[class*="flex-wrap"][class*="bot"] button[title*="retry"],
+[class*="flex-wrap"][class*="bot"] button[title*="Retry"],
+/* Target buttons in message-row containers */
+[class*="message-row"][class*="bot"] button[aria-label*="copy"],
+[class*="message-row"][class*="bot"] button[aria-label*="Copy"],
+[class*="message-row"][class*="bot"] button[title*="copy"],
+[class*="message-row"][class*="bot"] button[title*="Copy"],
+[class*="message-row"][class*="bot"] button[aria-label*="retry"],
+[class*="message-row"][class*="bot"] button[aria-label*="Retry"],
+[class*="message-row"][class*="bot"] button[title*="retry"],
+[class*="message-row"][class*="bot"] button[title*="Retry"],
+[class*="message-row"][class*="bot"] [class*="message-buttons"] button,
+[class*="message-row"][class*="bot"] [class*="message-buttons-left"] button,
+[class*="message-row"][class*="bot"] [class*="message-buttons-right"] button,
+/* Target buttons in message-buttons-left and icon-button-wrapper directly - scoped to their parent message-row */
+[class*="message-row"][class*="bot"] .message-buttons-left button,
+[class*="message-row"][class*="bot"] [class*="message-buttons-left"] button,
+[class*="message-row"][class*="bot"] .icon-button-wrapper button,
+[class*="message-row"][class*="bot"] [class*="icon-button-wrapper"] button,
+.message-wrap.bot .message-buttons-left button,
+.message-wrap.bot [class*="message-buttons-left"] button,
+.message-wrap.bot .icon-button-wrapper button,
+.message-wrap.bot [class*="icon-button-wrapper"] button {
+    order: 2 !important;
+    margin-top: 0 !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    width: auto !important;
+    display: inline-flex !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    align-self: flex-start !important;
+    float: none !important;
+    clear: both !important;
+}
+
+/* Style message-buttons containers to appear below - scoped to their parent message-row */
+[class*="message-row"][class*="bot"] [class*="message-buttons"],
+[class*="message-row"][class*="bot"] [class*="message-buttons-left"],
+[class*="message-row"][class*="bot"] [class*="message-buttons-right"],
+.message-wrap.bot [class*="message-buttons"],
+.message-wrap.bot [class*="message-buttons-left"],
+.message-wrap.bot [class*="message-buttons-right"],
+/* Target message-buttons-left directly (Gradio's structure) - scoped to parent */
+[class*="message-row"][class*="bot"] .message-buttons-left,
+[class*="message-row"][class*="bot"] [class*="message-buttons-left"],
+.message-wrap.bot .message-buttons-left,
+.message-wrap.bot [class*="message-buttons-left"],
+/* Target icon-button-wrapper containers - scoped to parent */
+[class*="message-row"][class*="bot"] .icon-button-wrapper,
+[class*="message-row"][class*="bot"] [class*="icon-button-wrapper"],
+.message-wrap.bot .icon-button-wrapper,
+.message-wrap.bot [class*="icon-button-wrapper"] {
+    order: 2 !important;
+    margin-top: 4px !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    align-items: center !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    float: none !important;
+    clear: both !important;
+    width: auto !important;
+    max-width: 100% !important;
+}
+
+/* For edited messages (after streaming completes), use slightly more spacing */
+[class*="message-row"][class*="bot"]:has(.message.bot:not(:has(.loading-dots))) [class*="message-buttons-left"],
+[class*="message-row"][class*="bot"]:has(.message.bot:not(:has(.loading-dots))) .message-buttons-left {
+    margin-top: 8px !important;
+}
+
+/* Ensure bot message itself comes before buttons */
+.message-wrap.bot > .message.bot,
+.message-wrap.bot .message.bot,
+.message-wrap.bot > div.message.bot,
+.message-wrap.bot div.message.bot,
+[class*="message-row"][class*="bot"] .message.bot,
+[class*="message-row"][class*="bot"] div.message.bot,
+[class*="flex-wrap"][class*="role"] .message.bot,
+[class*="flex-wrap"][class*="role"] div.message.bot {
+    order: 1 !important; /* Message comes first */
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 0 !important;
+}
+
+/* Reduce bottom margin for bot messages before edit (with nested structure) */
+[class*="message-row"][class*="bot"] .message.bot:has(.panel-full-width),
+[class*="message-row"][class*="bot"] .message.bot:has(.message-content),
+[class*="message-row"][class*="bot"] .message.bot:has(div[data-testid="bot"]),
+.message-wrap.bot .message.bot:has(.panel-full-width),
+.message-wrap.bot .message.bot:has(.message-content),
+.message-wrap.bot .message.bot:has(div[data-testid="bot"]) {
+    margin-bottom: -20px !important;
+}
+
+/* Increase bottom margin for bot messages after edit (simplified structure, just text - no nested divs) */
+[class*="message-row"][class*="bot"] .message.bot:not(:has(div)),
+.message-wrap.bot .message.bot:not(:has(div)) {
+    margin-bottom: 28px !important;
+}
+
+/* Ensure flex-wrap containers in bot messages also stack vertically */
+.message-wrap.bot .flex-wrap,
+.message-wrap.bot [class*="flex-wrap"],
+.message-wrap.bot > div[class*="flex-wrap"],
+/* Ensure any container that has message-buttons-left uses column layout */
+:has(.message-buttons-left),
+:has([class*="message-buttons-left"]),
+[class*="message-row"]:has(.message-buttons-left),
+[class*="message-row"]:has([class*="message-buttons-left"]) {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    display: flex !important;
+    width: 100% !important;
+}
+
+/* Specifically target buttons that appear after editing */
+.message-wrap.bot:has(.message.bot:not(:has(.loading-dots))) button {
+    order: 2 !important;
+    margin-top: 8px !important;
+    margin-left: 0 !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+}
+
+/* Style messages that are loading */
+.message.bot[data-loading="true"] {
+    position: relative;
+}
+
+/* Hide action buttons when message is loading - use JavaScript for better detection */
+.message-loading button {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Hide copy/retry buttons when message contains loading dots */
+.message-wrap.bot:has(.loading-dots) button,
+.message-wrap.bot .message:has(.loading-dots) ~ * button,
+.message-wrap.bot .message:only-child:has(.loading-dots) ~ button {
+    display: none !important;
+    visibility: hidden !important;
+}
