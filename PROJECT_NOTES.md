@@ -251,6 +251,7 @@ Uses **pytest** as the testing framework with the following approach:
     - **`test_stop_endpoint_response_format`** tests that the stop endpoint returns a response with the expected JSON structure.
 
 ### Limitations & Bugs
+- The app may occasionally behave inconsistently on Render due to container restarts and hosting environment constraints.
 - SQLite storage on Render is ephemeral, meaning all chat history may be lost when the service restarts or redeploys.
 - The stop button switches back to the send button too quickly, making it difficult for users to effectively interrupt the assistant’s streaming response.
 - Message version tracking is not supported, so previous versions of edited or retried messages cannot be viewed or restored.
