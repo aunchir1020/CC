@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, UploadFile, File
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from openai import OpenAI
 from env import OPENAI_API_KEY
 from database import ChatMessage, get_db, SessionLocal
-from export_db import create_db_export
 
 import uuid
 import json
@@ -691,22 +690,3 @@ async def speech_to_text(audio: UploadFile = File(...)):
     
     except Exception as e:
         return {"text": "", "status": "error", "error": str(e)}
-
-
-@app.get("/export-db/")
-def export_database():
-    """
-    Export the SQLite database file so it can be downloaded
-    and saved locally (useful because Render SQLite storage is temporary).
-    """
-    try:
-        export_path, filename = create_db_export()
-        return FileResponse(
-            export_path,
-            media_type="application/octet-stream",
-            filename=filename,
-        )
-    except FileNotFoundError:
-        return {"error": "Database file not found on the server."}
-    except Exception as e:
-        return {"error": f"Failed to export database: {str(e)}"}

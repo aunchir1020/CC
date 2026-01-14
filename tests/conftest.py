@@ -53,9 +53,9 @@ def sample_short_message():
 @pytest.fixture
 def sample_long_message():
     """A message that exceeds 400 tokens"""
-    # Create a message that's definitely over 400 tokens
-    # Each word is approximately 1 token, so we need 400+ words
-    words = ["word"] * 500
+    # Create a message that's definitely over 1200 tokens
+    # Each word is approximately 1 token, so we need 1200+ words
+    words = ["word"] * 1300
     return " ".join(words)
 
 

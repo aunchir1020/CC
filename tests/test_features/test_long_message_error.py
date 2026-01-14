@@ -1,5 +1,5 @@
 """
-Test cases for user sending very long messages that exceed 400 tokens
+Test cases for user sending very long messages that exceed 1200 tokens
 """
 import pytest
 import json
@@ -18,10 +18,10 @@ from conftest import client, test_session_id, sample_long_message
 from database import ChatMessage, SessionLocal
 from api import count_tokens, MAX_USER_MESSAGE_TOKENS
 
-# Test handling of messages that exceed 400 tokens
+# Test handling of messages that exceed 1200 tokens
 class TestLongMessageError:
 
-    # Test that when a message exceeds 400 tokens, the OpenAI API is not called.
+    # Test that when a message exceeds 1200 tokens, the OpenAI API is not called.
     def test_long_message_does_not_call_openai_api(self, client, test_session_id, sample_long_message):
         # Send long message
         response = client.post(
@@ -46,8 +46,8 @@ class TestLongMessageError:
         # Should not contain typical bot response patterns
         assert "The message you submitted was too long" in response_text
     
-    # Test that sending a message exceeding 400 tokens returns the specific error message
-    def test_user_sends_message_exceeding_400_tokens_gets_error(self, client, test_session_id, sample_long_message):
+    # Test that sending a message exceeding 1200 tokens returns the specific error message
+    def test_user_sends_message_exceeding_1200_tokens_gets_error(self, client, test_session_id, sample_long_message):
         # Verify the message actually exceeds the limit
         token_count = count_tokens(sample_long_message)
         assert token_count > MAX_USER_MESSAGE_TOKENS, f"Test message should exceed {MAX_USER_MESSAGE_TOKENS} tokens, but has {token_count}"
@@ -76,7 +76,7 @@ class TestLongMessageError:
         assert "error" in response_text.lower()
         assert "The message you submitted was too long, please edit it and resubmit." in response_text
     
-    # Test that a long message (exceeding 400 tokens) is still saved to the database even though it returns an error, so it can be edited later.
+    # Test that a long message (exceeding 1200 tokens) is still saved to the database even though it returns an error, so it can be edited later.
     def test_long_message_is_saved_to_database_despite_error(self, client, test_session_id, sample_long_message):
         # Verify the message actually exceeds the limit
         token_count = count_tokens(sample_long_message)
