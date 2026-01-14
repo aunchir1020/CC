@@ -6,9 +6,9 @@ import os
 import threading
 import gc
 import traceback
-from dotenv import load_dotenv
+import copy
 
-# Load environment variables
+from dotenv import load_dotenv
 load_dotenv()
 
 # Backend API URL - use environment variable or default to localhost
@@ -559,36 +559,62 @@ def submit_and_respond_chat(message, history, started, session_id):
 # Retry generating the last bot response
 def retry_last_response(chat_history, session_id):
     try:
-        print(f"🔄 Retry called with session_id: {session_id}, chat_history length: {len(chat_history) if chat_history else 0}")
+        print(f"🔄 Retry called with session_id: {session_id}")
+        print(f"📋 Chat history type: {type(chat_history)}")
+        print(f"📋 Chat history length: {len(chat_history) if chat_history else 0}")
         
         if not chat_history or len(chat_history) < 2:
             print("⚠️ Retry: Chat history too short or empty")
             return chat_history or [], session_id
         
-        # Ensure chat_history is a list and make a copy
-        chat_history = list(chat_history) if chat_history else []
-        print(f"📋 Retry: Processing {len(chat_history)} messages")
+        # Make a deep copy to avoid mutating the original
+        import copy
+        chat_history = copy.deepcopy(chat_history)
         
-        # Validate all messages are in correct format
+        # Validate and normalize all messages to correct format
         validated_history = []
         for idx, msg in enumerate(chat_history):
             try:
-                if isinstance(msg, dict) and "role" in msg and "content" in msg:
-                    validated_history.append({
-                        "role": str(msg["role"]),
-                        "content": str(msg["content"])
-                    })
+                # Handle dict format (standard)
+                if isinstance(msg, dict):
+                    role = msg.get("role")
+                    content = msg.get("content")
+                    
+                    # Extract string content if it's in nested format
+                    if isinstance(content, (list, dict)):
+                        # If content is a list/dict, try to extract text
+                        print(f"⚠️ Retry: Message {idx} has complex content: {type(content)}")
+                        if isinstance(content, list) and len(content) > 0:
+                            # Extract first text item
+                            if isinstance(content[0], dict) and "text" in content[0]:
+                                content = content[0]["text"]
+                            else:
+                                content = str(content[0])
+                        else:
+                            content = str(content)
+                    
+                    if role and content:
+                        validated_history.append({
+                            "role": str(role),
+                            "content": str(content)
+                        })
+                    else:
+                        print(f"⚠️ Retry: Message {idx} missing role or content")
+                        continue
                 else:
                     print(f"⚠️ Retry: Invalid message format at index {idx}: {type(msg)}")
                     continue
+                    
             except Exception as e:
                 print(f"❌ Retry: Error validating message at index {idx}: {e}")
+                traceback.print_exc()
                 continue
         
         if not validated_history:
             print("❌ Retry: No valid messages after validation")
             return [], session_id
         
+        print(f"✅ Retry: Validated {len(validated_history)} messages")
         chat_history = validated_history
         
         # Find the last assistant message index
@@ -602,7 +628,9 @@ def retry_last_response(chat_history, session_id):
             print("⚠️ Retry: No assistant message found to retry")
             return chat_history, session_id
         
-        # Show loading
+        print(f"🎯 Retry: Found assistant message at index {last_assistant_idx}")
+        
+        # Show loading - ensure clean format
         chat_history[last_assistant_idx] = {
             "role": "assistant",
             "content": '<span class="loading-dots"><span></span><span></span><span></span></span>'
@@ -656,6 +684,7 @@ def retry_last_response(chat_history, session_id):
                             else:
                                 accumulated_response += data["token"]
                             
+                            # Update with clean format
                             chat_history[last_assistant_idx] = {
                                 "role": "assistant",
                                 "content": accumulated_response
@@ -666,9 +695,10 @@ def retry_last_response(chat_history, session_id):
                         continue
                     except Exception as e:
                         print(f"❌ Retry: Error processing stream line: {e}")
+                        traceback.print_exc()
                         continue
             
-            # Final update
+            # Final update with clean format
             if accumulated_response:
                 chat_history[last_assistant_idx] = {
                     "role": "assistant",
@@ -680,11 +710,13 @@ def retry_last_response(chat_history, session_id):
                     "content": "No response received from the model."
                 }
             
+            print(f"✅ Retry: Completed successfully")
             yield chat_history, session_id
                 
         except requests.exceptions.RequestException as e:
             error_msg = f"Connection error: {str(e)}"
             print(f"❌ Retry: {error_msg}")
+            traceback.print_exc()
             chat_history[last_assistant_idx] = {
                 "role": "assistant",
                 "content": error_msg
