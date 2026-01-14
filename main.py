@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Backend API URL - use environment variable or default to localhost
-BASE_API_URL = os.getenv("API_URL", "http://localhost:8000")
+BASE_API_URL = os.getenv("FASTAPI_URL", "http://localhost:8000")
 API_URL = f"{BASE_API_URL}/chat/"
 RETRY_API_URL = f"{BASE_API_URL}/chat/retry/"
 EDIT_API_URL = f"{BASE_API_URL}/chat/edit/"
