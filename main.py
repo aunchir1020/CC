@@ -128,8 +128,15 @@ def load_js():
             textbox_auto_grow_js = f.read()
             js_content_parts.append(textbox_auto_grow_js)
     
-    # Get API URL for JavaScript (use BASE_API_URL, which is configured for the deployment)
-    js_api_base = BASE_API_URL
+    # Get API URL for JavaScript
+    # For deployed environments, JavaScript will detect the current origin and use it
+    # For localhost, use the configured BASE_API_URL
+    if BASE_API_URL == "http://localhost:8000":
+        # Use a special marker that JavaScript will replace with dynamic detection
+        js_api_base = "__DYNAMIC_API_URL__"
+    else:
+        # Use the configured API URL (for custom deployments)
+        js_api_base = BASE_API_URL
     
     # Load edit_user_messages.js
     edit_js_path = os.path.join(js_dir, 'edit_user_messages.js')

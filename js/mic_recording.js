@@ -11,7 +11,19 @@
     let textbox = null;
     let originalPlaceholder = null;
     
-    const SPEECH_TO_TEXT_API = '__API_BASE_URL__/speech-to-text/';
+    // Dynamically determine API base URL
+    let API_BASE = '__API_BASE_URL__';
+    if (API_BASE === '__DYNAMIC_API_URL__' || API_BASE.includes('localhost')) {
+        const currentOrigin = window.location.origin;
+        if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+            API_BASE = 'http://localhost:8000';
+        } else {
+            const url = new URL(currentOrigin);
+            API_BASE = `${url.protocol}//${url.hostname}:8000`;
+            console.log('🔗 Using API URL:', API_BASE);
+        }
+    }
+    const SPEECH_TO_TEXT_API = API_BASE + '/speech-to-text/';
     
     // Initialize microphone button handlers
     function setupMicrophoneButton() {

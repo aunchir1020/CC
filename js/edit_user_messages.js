@@ -1,6 +1,21 @@
 (function() {
     const SESSION_ID = '__SESSION_ID__';
-    const API_BASE = '__API_BASE_URL__';
+    // Dynamically determine API base URL
+    let API_BASE = '__API_BASE_URL__';
+    if (API_BASE === '__DYNAMIC_API_URL__' || API_BASE.includes('localhost')) {
+        // For deployed environments, try to use current origin with port 8000
+        const currentOrigin = window.location.origin;
+        if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+            API_BASE = 'http://localhost:8000';
+        } else {
+            // For deployed apps, try current origin with port 8000
+            // Note: This will only work if port 8000 is publicly exposed
+            // If not, you need to set API_URL environment variable to a publicly accessible backend URL
+            const url = new URL(currentOrigin);
+            API_BASE = `${url.protocol}//${url.hostname}:8000`;
+            console.log('🔗 Using API URL:', API_BASE);
+        }
+    }
     
     // Setup edit button functionality
     function setupEditButton() {
