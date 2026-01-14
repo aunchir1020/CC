@@ -1,12 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Chattie Application..."
-echo "📡 Starting FastAPI with Gradio mounted..."
+echo "🚀 Starting Chattie Frontend (Gradio)..."
 
-# Use Render's PORT if available, otherwise default to 8000
-PORT=${PORT:-8000}
-
-# Start FastAPI (with Gradio mounted)
-# Both backend API and frontend UI are served from the same port
-python -m uvicorn api:app --host 0.0.0.0 --port $PORT
+# Start Gradio frontend
+# Render sets PORT environment variable - Gradio will use it automatically
+python main.py

@@ -8,7 +8,6 @@ from openai import OpenAI
 from env import OPENAI_API_KEY
 from database import ChatMessage, get_db, SessionLocal
 
-import gradio as gr
 import uuid
 import json
 import threading
@@ -677,10 +676,3 @@ async def speech_to_text(audio: UploadFile = File(...)):
     
     except Exception as e:
         return {"text": "", "status": "error", "error": str(e)}
-
-# Import and mount Gradio demo
-from main import demo
-
-# Mount Gradio app at root path
-# This allows both FastAPI endpoints and Gradio UI to be served from the same port
-app = gr.mount_gradio_app(app, demo, path="/")

@@ -128,12 +128,16 @@ def load_js():
             textbox_auto_grow_js = f.read()
             js_content_parts.append(textbox_auto_grow_js)
     
+    # Get API URL for JavaScript (use BASE_API_URL from environment)
+    js_api_base = BASE_API_URL
+    
     # Load edit_user_messages.js
     edit_js_path = os.path.join(js_dir, 'edit_user_messages.js')
     if os.path.exists(edit_js_path):
         with open(edit_js_path, 'r', encoding='utf-8') as f:
             edit_js = f.read()
             edit_js = edit_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            edit_js = edit_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
             js_content_parts.append(edit_js)
 
     # Load stop_messages.js
@@ -142,6 +146,7 @@ def load_js():
         with open(stop_js_path, 'r', encoding='utf-8') as f:
             stop_js = f.read()
             stop_js = stop_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            stop_js = stop_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
             js_content_parts.append(stop_js)
 
     # Load mic_recording.js
@@ -149,6 +154,7 @@ def load_js():
     if os.path.exists(mic_js_path):
         with open(mic_js_path, 'r', encoding='utf-8') as f:
             mic_js = f.read()
+            mic_js = mic_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
             js_content_parts.append(mic_js)
     
     return '\n\n'.join(js_content_parts)
@@ -707,8 +713,29 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
         outputs=[chatbot]
     )
 
-# Initialize queue for the demo
-demo.queue()
-
-# Keep the demo available for mounting into FastAPI
-# The demo will be mounted in api.py using gr.mount_gradio_app()
+if __name__ == "__main__":
+    print("=" * 60)
+    print("🚀 Starting Chattie - AI Chat Assistant")
+    print("=" * 60)
+    print(f"📋 Session ID: {session_id}")
+    print(f"🔗 Backend API: {BASE_API_URL}")
+    print("=" * 60)
+    
+    # Get server configuration from environment variables
+    # Render provides PORT environment variable - use it if available
+    server_name = os.getenv("GRADIO_SERVER_NAME", "0.0.0.0")
+    # Use Render's PORT if available, otherwise use GRADIO_SERVER_PORT or default 7860
+    render_port = os.getenv("PORT")
+    if render_port:
+        server_port = int(render_port)
+    else:
+        server_port = int(os.getenv("GRADIO_SERVER_PORT", "7860"))
+    inbrowser = os.getenv("GRADIO_INBROWSER", "false").lower() == "true"
+    
+    demo.queue()
+    demo.launch(
+        server_name=server_name,
+        server_port=server_port,
+        share=False,
+        inbrowser=inbrowser,
+    )
