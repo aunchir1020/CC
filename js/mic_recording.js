@@ -135,9 +135,13 @@
             micBtn.style.setProperty('opacity', '0', 'important');
         }
         if (sendBtn) {
+            // Add class for CSS-based hiding (more reliable)
+            sendBtn.classList.add('recording-hidden');
+            // Also use inline styles as backup
             sendBtn.style.setProperty('display', 'none', 'important');
             sendBtn.style.setProperty('visibility', 'hidden', 'important');
             sendBtn.style.setProperty('opacity', '0', 'important');
+            sendBtn.style.setProperty('pointer-events', 'none', 'important');
             console.log('✅ Send button hidden:', sendBtn.id || sendBtn.className, 'Element:', sendBtn);
         } else {
             console.warn('⚠️ Send button not found! Searching in:', inputContainer);
@@ -272,10 +276,13 @@
                 micBtn.style.setProperty('opacity', '1', 'important');
             }
             if (sendBtn) {
+                // Remove recording-hidden class
+                sendBtn.classList.remove('recording-hidden');
                 // Remove !important styles by setting to default values
                 sendBtn.style.removeProperty('display');
                 sendBtn.style.removeProperty('visibility');
                 sendBtn.style.removeProperty('opacity');
+                sendBtn.style.removeProperty('pointer-events');
                 sendBtn.style.setProperty('display', '', 'important');
                 sendBtn.style.setProperty('visibility', 'visible', 'important');
                 sendBtn.style.setProperty('opacity', '1', 'important');
@@ -344,9 +351,13 @@
             micBtn.style.setProperty('opacity', '0', 'important');
         }
         if (sendBtn) {
+            // Add class for CSS-based hiding (more reliable)
+            sendBtn.classList.add('recording-hidden');
+            // Also use inline styles as backup
             sendBtn.style.setProperty('display', 'none', 'important');
             sendBtn.style.setProperty('visibility', 'hidden', 'important');
             sendBtn.style.setProperty('opacity', '0', 'important');
+            sendBtn.style.setProperty('pointer-events', 'none', 'important');
             console.log('✅ Send button hidden in showRecordingUI:', sendBtn.id || sendBtn.className);
         } else {
             console.warn('⚠️ Send button not found in showRecordingUI!');
@@ -513,10 +524,13 @@
             micBtn.style.setProperty('opacity', '1', 'important');
         }
         if (sendBtn) {
+            // Remove recording-hidden class
+            sendBtn.classList.remove('recording-hidden');
             // Remove !important styles by setting to default values
             sendBtn.style.removeProperty('display');
             sendBtn.style.removeProperty('visibility');
             sendBtn.style.removeProperty('opacity');
+            sendBtn.style.removeProperty('pointer-events');
             sendBtn.style.setProperty('display', '', 'important');
             sendBtn.style.setProperty('visibility', 'visible', 'important');
             sendBtn.style.setProperty('opacity', '1', 'important');
@@ -576,10 +590,13 @@
             micBtn.style.setProperty('opacity', '1', 'important');
         }
         if (sendBtn) {
+            // Remove recording-hidden class
+            sendBtn.classList.remove('recording-hidden');
             // Remove !important styles by setting to default values
             sendBtn.style.removeProperty('display');
             sendBtn.style.removeProperty('visibility');
             sendBtn.style.removeProperty('opacity');
+            sendBtn.style.removeProperty('pointer-events');
             sendBtn.style.setProperty('display', '', 'important');
             sendBtn.style.setProperty('visibility', 'visible', 'important');
             sendBtn.style.setProperty('opacity', '1', 'important');
@@ -635,10 +652,13 @@
             micBtn.style.setProperty('opacity', '1', 'important');
         }
         if (sendBtn) {
+            // Remove recording-hidden class
+            sendBtn.classList.remove('recording-hidden');
             // Remove !important styles by setting to default values
             sendBtn.style.removeProperty('display');
             sendBtn.style.removeProperty('visibility');
             sendBtn.style.removeProperty('opacity');
+            sendBtn.style.removeProperty('pointer-events');
             sendBtn.style.setProperty('display', '', 'important');
             sendBtn.style.setProperty('visibility', 'visible', 'important');
             sendBtn.style.setProperty('opacity', '1', 'important');

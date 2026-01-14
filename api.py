@@ -275,6 +275,11 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
     local_db = SessionLocal()
     
     try:
+        # Validate session_id
+        if not session_id or not isinstance(session_id, str) or len(session_id.strip()) == 0:
+            yield json.dumps({"error": "Invalid session ID provided"}) + "\n"
+            return
+        
         # Get the last user message from database
         last_user = (
             local_db.query(ChatMessage)
@@ -285,7 +290,16 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
         )
         
         if not last_user:
-            yield json.dumps({"error": "No user message to edit"}) + "\n"
+            # Check if session exists at all
+            session_exists = (
+                local_db.query(ChatMessage)
+                .filter(ChatMessage.session_id == session_id)
+                .first()
+            )
+            if not session_exists:
+                yield json.dumps({"error": f"No chat session found with session ID: {session_id[:8]}..."}) + "\n"
+            else:
+                yield json.dumps({"error": "No user message found to edit in this session"}) + "\n"
             return
         
         # Check edited message token count before updating (max 400 tokens)

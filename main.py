@@ -117,22 +117,45 @@ def load_js():
     """
     js_content_parts.append(set_favicon)
     
-    # Generate session ID code for JavaScript (each browser tab gets unique session)
-    generate_session_id_js = """
-    // Generate unique session ID for this browser tab
-    function generateSessionId() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0;
-            const v = c == 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+    # Session ID code for JavaScript - uses Python session_id only (no generation)
+    session_id_js = """
+    // Get session ID from Python (stored in container, updated when messages are sent)
+    function getSessionId() {
+        const container = document.getElementById('session-id-container');
+        if (container && container.getAttribute('data-session-id')) {
+            const sessionId = container.getAttribute('data-session-id');
+            window.__SESSION_ID__ = sessionId;
+            return sessionId;
+        }
+        
+        // If not set yet, return undefined (will be set when first message is sent)
+        console.warn('⚠️ Session ID not yet available - will be set when first message is sent');
+        return undefined;
     }
-    // Store session ID in a global variable (generated once per page load)
-    if (typeof window.__SESSION_ID__ === 'undefined') {
-        window.__SESSION_ID__ = generateSessionId();
-    }
+    
+    // Initialize - try to get session_id from container
+    window.__SESSION_ID__ = getSessionId();
+    
+    // Monitor container for session_id updates (from Python)
+    (function() {
+        const container = document.getElementById('session-id-container');
+        if (container) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-session-id') {
+                        const sessionId = container.getAttribute('data-session-id');
+                        if (sessionId) {
+                            window.__SESSION_ID__ = sessionId;
+                            console.log('📝 Session ID updated from Python:', sessionId);
+                        }
+                    }
+                });
+            });
+            observer.observe(container, { attributes: true });
+        }
+    })();
     """
-    js_content_parts.append(generate_session_id_js)
+    js_content_parts.append(session_id_js)
     
     # Load JavaScript files from js folder
     js_dir = os.path.join(os.path.dirname(__file__), 'js')
@@ -516,6 +539,29 @@ def retry_last_response(chat_history, session_id):
     # Make a copy to avoid mutating the original
     chat_history = list(chat_history) if chat_history else []
     
+    # Convert Gradio tuple format to dictionary format if needed
+    # Gradio can pass messages as tuples: (user_message, bot_message)
+    # or as dictionaries: {"role": "user", "content": "..."}
+    converted_history = []
+    for msg in chat_history:
+        if isinstance(msg, dict) and "role" in msg and "content" in msg:
+            # Already in dictionary format
+            converted_history.append(msg)
+        elif isinstance(msg, (list, tuple)) and len(msg) == 2:
+            # Tuple format: (user_message, bot_message)
+            # Convert to dictionary format
+            user_msg, bot_msg = msg
+            if user_msg:
+                converted_history.append({"role": "user", "content": str(user_msg)})
+            if bot_msg:
+                converted_history.append({"role": "assistant", "content": str(bot_msg)})
+        else:
+            # Try to handle other formats - skip invalid ones
+            print(f"⚠️ Warning: Skipping invalid message format: {type(msg)}")
+            continue
+    
+    chat_history = converted_history
+    
     # Find the last assistant message index
     last_assistant_idx = None
     for i in range(len(chat_history) - 1, -1, -1):
@@ -524,7 +570,7 @@ def retry_last_response(chat_history, session_id):
             break
     
     if last_assistant_idx is None:
-        return chat_history, session_id
+        return converted_history if converted_history else [], session_id
     
     # Show loading
     chat_history[last_assistant_idx] = {
@@ -607,6 +653,7 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
             <div id="logo-icon">💬</div>
             <h1 id="logo-text">Chattie</h1>
         </div>
+        <div id="session-id-container" style="display: none;"></div>
     """)
     
     # Welcome section
@@ -692,6 +739,9 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
             )
 
     chat_started = gr.State(False)
+    # Session ID: Each browser tab gets a unique session_id (isolated chat history)
+    # Page refresh generates a new session_id (new chat session)
+    # gr.State resets on refresh, so lambda generates new UUID each time
     session_id_state = gr.State(lambda: str(uuid.uuid4()))
     
     # Enable/disable buttons based on input
@@ -729,6 +779,34 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
         fn=retry_last_response,
         inputs=[chatbot, session_id_state],
         outputs=[chatbot, session_id_state]
+    )
+    
+    # Load event to initialize session_id in JavaScript container
+    def initialize_session_id(session_id):
+        """Return empty HTML - session_id is set via JavaScript"""
+        return ""
+    
+    # Hidden HTML component for load event
+    session_id_display = gr.HTML(visible=False, elem_id="session-id-display")
+    
+    # Load event to set initial session_id in JavaScript
+    demo.load(
+        fn=initialize_session_id,
+        inputs=[session_id_state],
+        outputs=[session_id_display],
+        js="""
+        function(session_id) {
+            if (typeof window !== 'undefined' && session_id) {
+                window.__SESSION_ID__ = session_id;
+                const container = document.getElementById('session-id-container');
+                if (container) {
+                    container.setAttribute('data-session-id', session_id);
+                    console.log('📝 Session ID initialized from Python:', session_id);
+                }
+            }
+            return '';
+        }
+        """
     )
 
 if __name__ == "__main__":

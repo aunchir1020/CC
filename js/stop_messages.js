@@ -14,7 +14,27 @@
         console.warn('⚠️ Unhandled promise rejection:', event.reason);
     });
     
-    const SESSION_ID = '__SESSION_ID__';
+    // Function to get session ID from Python (stored in container)
+    // Only uses Python session_id - no JavaScript generation
+    function getSessionId() {
+        // Read from container (set by Python on page load and when messages are sent)
+        const container = document.getElementById('session-id-container');
+        if (container && container.getAttribute('data-session-id')) {
+            const sessionId = container.getAttribute('data-session-id');
+            window.__SESSION_ID__ = sessionId;
+            return sessionId;
+        }
+        
+        // Fallback: use window global if set
+        if (typeof window.__SESSION_ID__ !== 'undefined' && window.__SESSION_ID__) {
+            return window.__SESSION_ID__;
+        }
+        
+        // If not available yet, return undefined (should be set by Python)
+        console.warn('⚠️ Session ID not available - waiting for Python to set it');
+        return undefined;
+    }
+    
     const API_BASE = '__API_BASE_URL__';
     
     // Setup stop button functionality
@@ -544,9 +564,16 @@
                 streamingTimeout = null;
             }
         
+        // Get current session_id (from Python)
+        const currentSessionId = getSessionId();
+        if (!currentSessionId) {
+            console.error('❌ Cannot stop: Session ID not available');
+            return;
+        }
+        
         // Call backend stop endpoint with proper error handling
         try {
-            const response = await fetch(API_BASE + '/chat/stop/' + SESSION_ID, {
+            const response = await fetch(API_BASE + '/chat/stop/' + currentSessionId, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
