@@ -11,7 +11,7 @@
     let textbox = null;
     let originalPlaceholder = null;
     
-    const SPEECH_TO_TEXT_API = 'http://localhost:8000/speech-to-text/';
+    const SPEECH_TO_TEXT_API = '__API_BASE_URL__/speech-to-text/';
     
     // Initialize microphone button handlers
     function setupMicrophoneButton() {

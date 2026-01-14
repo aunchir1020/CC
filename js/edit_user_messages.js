@@ -1,6 +1,6 @@
 (function() {
     const SESSION_ID = '__SESSION_ID__';
-    const API_BASE = 'http://localhost:8000';
+    const API_BASE = '__API_BASE_URL__';
     
     // Setup edit button functionality
     function setupEditButton() {

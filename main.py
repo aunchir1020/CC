@@ -128,12 +128,16 @@ def load_js():
             textbox_auto_grow_js = f.read()
             js_content_parts.append(textbox_auto_grow_js)
     
+    # Get API URL for JavaScript (use BASE_API_URL, which is configured for the deployment)
+    js_api_base = BASE_API_URL
+    
     # Load edit_user_messages.js
     edit_js_path = os.path.join(js_dir, 'edit_user_messages.js')
     if os.path.exists(edit_js_path):
         with open(edit_js_path, 'r', encoding='utf-8') as f:
             edit_js = f.read()
             edit_js = edit_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            edit_js = edit_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
             js_content_parts.append(edit_js)
 
     # Load stop_messages.js
@@ -142,6 +146,7 @@ def load_js():
         with open(stop_js_path, 'r', encoding='utf-8') as f:
             stop_js = f.read()
             stop_js = stop_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            stop_js = stop_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
             js_content_parts.append(stop_js)
 
     # Load mic_recording.js
@@ -149,7 +154,7 @@ def load_js():
     if os.path.exists(mic_js_path):
         with open(mic_js_path, 'r', encoding='utf-8') as f:
             mic_js = f.read()
-            # mic_recording.js doesn't use SESSION_ID, so no replacement needed
+            mic_js = mic_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
             js_content_parts.append(mic_js)
     
     return '\n\n'.join(js_content_parts)
