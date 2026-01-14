@@ -137,7 +137,7 @@ def load_js():
         with open(edit_js_path, 'r', encoding='utf-8') as f:
             edit_js = f.read()
             edit_js = edit_js.replace("'__SESSION_ID__'", f"'{session_id}'")
-            edit_js = edit_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
+            edit_js = edit_js.replace("__API_BASE_URL__", js_api_base)
             js_content_parts.append(edit_js)
 
     # Load stop_messages.js
@@ -146,7 +146,7 @@ def load_js():
         with open(stop_js_path, 'r', encoding='utf-8') as f:
             stop_js = f.read()
             stop_js = stop_js.replace("'__SESSION_ID__'", f"'{session_id}'")
-            stop_js = stop_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
+            stop_js = stop_js.replace("__API_BASE_URL__", js_api_base)
             js_content_parts.append(stop_js)
 
     # Load mic_recording.js
@@ -154,7 +154,7 @@ def load_js():
     if os.path.exists(mic_js_path):
         with open(mic_js_path, 'r', encoding='utf-8') as f:
             mic_js = f.read()
-            mic_js = mic_js.replace("'__API_BASE_URL__'", f"'{js_api_base}'")
+            mic_js = mic_js.replace("__API_BASE_URL__", js_api_base)
             js_content_parts.append(mic_js)
     
     return '\n\n'.join(js_content_parts)
