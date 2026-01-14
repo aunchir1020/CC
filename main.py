@@ -911,11 +911,25 @@ with gr.Blocks(title="Chattie") as demo:
                 window.__SESSION_ID__ = session_id;
                 console.log('📝 Session ID initialized from Python:', session_id);
                 
+                // Set in container immediately
+                const container = document.getElementById('session-id-container');
+                if (!container) {
+                    // Create container if it doesn't exist
+                    const newContainer = document.createElement('div');
+                    newContainer.id = 'session-id-container';
+                    newContainer.setAttribute('data-session-id', session_id);
+                    newContainer.style.display = 'none';
+                    document.body.appendChild(newContainer);
+                }
+                
                 // Also trigger a custom event so edit script knows session is ready
-                const event = new CustomEvent('sessionIdReady', { detail: { sessionId: session_id } });
+                const event = new CustomEvent('sessionIdReady', { 
+                    detail: { sessionId: session_id } 
+                });
                 document.dispatchEvent(event);
             }
-            return session_id;
+            // IMPORTANT: Return the HTML string, not the session_id
+            return '<div id="session-id-container" data-session-id="' + session_id + '" style="display: none;"></div>';
         }
         """
     )

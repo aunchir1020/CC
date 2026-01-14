@@ -4,27 +4,58 @@
     function getSessionId() {
         // Method 1: Check window global first (fastest)
         if (typeof window.__SESSION_ID__ !== 'undefined' && window.__SESSION_ID__) {
-            return window.__SESSION_ID__;
+            const sid = window.__SESSION_ID__;
+            // Validate it's a string and looks like a UUID
+            if (typeof sid === 'string' && sid.length > 10 && !sid.includes('function')) {
+                return sid;
+            }
         }
         
-        // Method 2: Read from container
+        // Method 2: Read from container in body
         const container = document.getElementById('session-id-container');
         if (container && container.getAttribute('data-session-id')) {
             const sessionId = container.getAttribute('data-session-id');
-            window.__SESSION_ID__ = sessionId;
-            return sessionId;
+            if (sessionId && typeof sessionId === 'string' && sessionId.length > 10) {
+                window.__SESSION_ID__ = sessionId;
+                return sessionId;
+            }
         }
         
-        // Method 3: Read from session-id-display (new method)
+        // Method 3: Read from session-id-display
         const display = document.getElementById('session-id-display');
         if (display) {
+            // Check if display has text content (the HTML string)
+            const htmlContent = display.innerHTML || display.textContent;
+            if (htmlContent && htmlContent.includes('data-session-id')) {
+                // Extract session ID from HTML string
+                const match = htmlContent.match(/data-session-id="([^"]+)"/);
+                if (match && match[1]) {
+                    const sessionId = match[1];
+                    window.__SESSION_ID__ = sessionId;
+                    console.log('📝 Extracted session ID from display HTML:', sessionId);
+                    return sessionId;
+                }
+            }
+            
+            // Also check for nested container
             const displayContainer = display.querySelector('#session-id-container');
             if (displayContainer) {
                 const sessionId = displayContainer.getAttribute('data-session-id');
-                if (sessionId) {
+                if (sessionId && typeof sessionId === 'string' && sessionId.length > 10) {
                     window.__SESSION_ID__ = sessionId;
                     return sessionId;
                 }
+            }
+        }
+        
+        // Method 4: Search all elements for session-id-container
+        const allContainers = document.querySelectorAll('[id="session-id-container"]');
+        for (const cont of allContainers) {
+            const sid = cont.getAttribute('data-session-id');
+            if (sid && typeof sid === 'string' && sid.length > 10) {
+                window.__SESSION_ID__ = sid;
+                console.log('📝 Found session ID in page:', sid);
+                return sid;
             }
         }
         
@@ -35,10 +66,29 @@
     // Listen for sessionIdReady event from Python
     document.addEventListener('sessionIdReady', function(event) {
         if (event.detail && event.detail.sessionId) {
-            window.__SESSION_ID__ = event.detail.sessionId;
-            console.log('✅ Session ID received from Python event:', event.detail.sessionId);
+            const sid = event.detail.sessionId;
+            if (typeof sid === 'string' && !sid.includes('function')) {
+                window.__SESSION_ID__ = sid;
+                console.log('✅ Session ID received from Python event:', sid);
+            } else {
+                console.error('❌ Invalid session ID from event:', sid);
+            }
         }
     });
+    
+    // Debug helper - check session ID periodically
+    let debugCheckCount = 0;
+    const debugInterval = setInterval(() => {
+        debugCheckCount++;
+        const sid = getSessionId();
+        if (sid && typeof sid === 'string' && !sid.includes('function') && sid.length > 10) {
+            console.log('✅ Session ID validated:', sid.substring(0, 8) + '...');
+            clearInterval(debugInterval);
+        } else if (debugCheckCount > 20) {
+            console.warn('⚠️ Session ID not available after 2 seconds');
+            clearInterval(debugInterval);
+        }
+    }, 100);
     
     const API_BASE = '__API_BASE_URL__';
     
@@ -739,21 +789,35 @@
                 // Get current session_id - wait if not available yet
                 let currentSessionId = getSessionId();
 
-                // If not available, wait for sessionIdReady event
+                // Validate session ID format
+                if (currentSessionId && typeof currentSessionId === 'string') {
+                    // Check if it looks like a function or invalid format
+                    if (currentSessionId.includes('function') || currentSessionId.includes('lambda') || currentSessionId.length < 10) {
+                        console.error('❌ Invalid session ID format detected:', currentSessionId);
+                        currentSessionId = undefined;
+                    }
+                }
+
+                // If not available or invalid, wait for sessionIdReady event
                 if (!currentSessionId) {
                     console.log('⏳ Waiting for session ID...');
                     
-                    // Wait up to 3 seconds for session ID
-                    const maxWait = 3000;
+                    // Wait up to 5 seconds for session ID (increased from 3)
+                    const maxWait = 5000;
                     const startTime = Date.now();
                     
                     await new Promise((resolve) => {
                         const checkInterval = setInterval(() => {
                             currentSessionId = getSessionId();
-                            if (currentSessionId) {
+                            
+                            // Validate format
+                            if (currentSessionId && typeof currentSessionId === 'string' && 
+                                !currentSessionId.includes('function') && currentSessionId.length > 10) {
+                                console.log('✅ Session ID found:', currentSessionId);
                                 clearInterval(checkInterval);
                                 resolve();
                             } else if (Date.now() - startTime > maxWait) {
+                                console.error('⏰ Timeout waiting for session ID');
                                 clearInterval(checkInterval);
                                 resolve();
                             }
@@ -762,10 +826,14 @@
                         // Also listen for event
                         const handler = (event) => {
                             if (event.detail && event.detail.sessionId) {
-                                currentSessionId = event.detail.sessionId;
-                                document.removeEventListener('sessionIdReady', handler);
-                                clearInterval(checkInterval);
-                                resolve();
+                                const sid = event.detail.sessionId;
+                                if (typeof sid === 'string' && !sid.includes('function') && sid.length > 10) {
+                                    currentSessionId = sid;
+                                    console.log('✅ Session ID from event:', sid);
+                                    document.removeEventListener('sessionIdReady', handler);
+                                    clearInterval(checkInterval);
+                                    resolve();
+                                }
                             }
                         };
                         document.addEventListener('sessionIdReady', handler);
@@ -773,10 +841,15 @@
                 }
 
                 console.log('📝 Using session_id for edit:', currentSessionId);
+                console.log('📝 Session ID type:', typeof currentSessionId);
+                console.log('📝 Session ID length:', currentSessionId ? currentSessionId.length : 0);
 
-                if (!currentSessionId) {
-                    const msg = 'Error: Session ID not available. Please refresh the page and try again.';
+                // Final validation before API call
+                if (!currentSessionId || typeof currentSessionId !== 'string' || 
+                    currentSessionId.includes('function') || currentSessionId.length < 10) {
+                    const msg = 'Error: Valid session ID not available. Please refresh the page and try again.';
                     console.error('❌', msg);
+                    console.error('❌ Invalid session ID value:', currentSessionId);
                     // Replace loading indicator with error (preserve structure)
                     if (textNodeToUpdate) {
                         textNodeToUpdate.textContent = msg;
