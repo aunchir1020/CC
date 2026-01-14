@@ -646,7 +646,8 @@ custom_css = load_css()
 custom_js = load_js()
 
 # Create Gradio interface
-with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
+# Gradio 6+: css/js should be passed to launch(), not Blocks()
+with gr.Blocks(title="Chattie") as demo:
     # Logo
     gr.HTML("""
         <div id="logo-container">
@@ -704,9 +705,7 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
         chatbot = gr.Chatbot(
             height=None,
             show_label=False,
-            container=False,
-            # We use {"role","content"} messages everywhere (respond/retry/edit)
-            type="messages"
+            container=False
         )
 
     # Chat input
@@ -834,6 +833,8 @@ if __name__ == "__main__":
     demo.launch(
         server_name=server_name,
         server_port=server_port,
+        css=custom_css,
+        js=custom_js,
         share=False,
         inbrowser=inbrowser,
     )
