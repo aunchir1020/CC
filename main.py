@@ -6,7 +6,6 @@ import os
 import threading
 import gc
 import traceback
-import copy
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -186,7 +185,8 @@ def load_js():
     function updateSessionIdDisplay(sessionId) {
         const display = document.getElementById('session-id-display');
         if (display && sessionId) {
-            display.textContent = `Session: ${sessionId.substring(0, 8)}...`;
+            // Show the full session id instead of a shortened version
+            display.textContent = `Session: ${sessionId}`;
         }
     }
     """
@@ -940,7 +940,8 @@ with gr.Blocks(title="Chattie") as demo:
                 // Update the display
                 const display = document.getElementById('session-id-display');
                 if (display) {
-                    display.textContent = `Session: ${sessionId}`;
+                    // Show the full session id here as well
+                    display.textContent = `Session: ${session_id}`;
                 }
 
                 // Also trigger a custom event so edit script knows session is ready
