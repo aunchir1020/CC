@@ -563,47 +563,33 @@ def retry_last_response(chat_history, session_id):
         
         if not chat_history or len(chat_history) < 2:
             print("⚠️ Retry: Chat history too short or empty")
-            # Return empty list in messages format
-            return [], session_id
+            return chat_history or [], session_id
         
-        # Make a copy to avoid mutating the original
+        # Ensure chat_history is a list and make a copy
         chat_history = list(chat_history) if chat_history else []
         print(f"📋 Retry: Processing {len(chat_history)} messages")
         
-        # Convert Gradio tuple format to dictionary format if needed
-        # Gradio 6 uses messages format by default, but handle both for compatibility
-        converted_history = []
+        # Validate all messages are in correct format
+        validated_history = []
         for idx, msg in enumerate(chat_history):
             try:
                 if isinstance(msg, dict) and "role" in msg and "content" in msg:
-                    # Already in dictionary format - ensure it's valid
-                    converted_history.append({
-                        "role": str(msg.get("role", "")),
-                        "content": str(msg.get("content", ""))
+                    validated_history.append({
+                        "role": str(msg["role"]),
+                        "content": str(msg["content"])
                     })
-                elif isinstance(msg, (list, tuple)) and len(msg) == 2:
-                    # Tuple format: (user_message, bot_message)
-                    # Convert to dictionary format
-                    user_msg, bot_msg = msg
-                    if user_msg:
-                        converted_history.append({"role": "user", "content": str(user_msg)})
-                    if bot_msg:
-                        converted_history.append({"role": "assistant", "content": str(bot_msg)})
                 else:
-                    # Try to handle other formats - skip invalid ones
-                    print(f"⚠️ Retry: Skipping invalid message format at index {idx}: {type(msg)}, value: {str(msg)[:100]}")
+                    print(f"⚠️ Retry: Invalid message format at index {idx}: {type(msg)}")
                     continue
             except Exception as e:
-                print(f"❌ Retry: Error processing message at index {idx}: {e}")
-                traceback.print_exc()
+                print(f"❌ Retry: Error validating message at index {idx}: {e}")
                 continue
         
-        if not converted_history:
-            print("❌ Retry: No valid messages after conversion")
+        if not validated_history:
+            print("❌ Retry: No valid messages after validation")
             return [], session_id
         
-        print(f"✅ Retry: Converted {len(converted_history)} valid messages")
-        chat_history = converted_history
+        chat_history = validated_history
         
         # Find the last assistant message index
         last_assistant_idx = None
@@ -614,14 +600,14 @@ def retry_last_response(chat_history, session_id):
         
         if last_assistant_idx is None:
             print("⚠️ Retry: No assistant message found to retry")
-            return converted_history, session_id
+            return chat_history, session_id
         
-        # Show loading - ensure format is correct
+        # Show loading
         chat_history[last_assistant_idx] = {
             "role": "assistant",
             "content": '<span class="loading-dots"><span></span><span></span><span></span></span>'
         }
-        yield chat_history
+        yield chat_history, session_id
         
         # Call retry API
         payload = {"session_id": session_id, "message": ""}
@@ -633,17 +619,15 @@ def retry_last_response(chat_history, session_id):
             if response.status_code != 200:
                 error_msg = f"Error: API returned status code {response.status_code}"
                 print(f"❌ Retry: {error_msg}")
-                if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
-                    chat_history[last_assistant_idx] = {
-                        "role": "assistant",
-                        "content": error_msg
-                    }
+                chat_history[last_assistant_idx] = {
+                    "role": "assistant",
+                    "content": error_msg
+                }
                 yield chat_history, session_id
                 return
             
             accumulated_response = ""
             first_token = True
-            stopped = False
             
             for line in response.iter_lines():
                 if line:
@@ -653,18 +637,14 @@ def retry_last_response(chat_history, session_id):
                         if "error" in data:
                             error_msg = data['error']
                             print(f"❌ Retry: Backend returned error: {error_msg}")
-                            # Display error message in bot message - ensure correct format
-                            if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
-                                chat_history[last_assistant_idx] = {
-                                    "role": "assistant",
-                                    "content": error_msg
-                                }
+                            chat_history[last_assistant_idx] = {
+                                "role": "assistant",
+                                "content": error_msg
+                            }
                             yield chat_history, session_id
                             return
                         
-                        # Check if backend stopped the stream
                         if "stopped" in data and data["stopped"]:
-                            stopped = True
                             if "partial_content" in data:
                                 accumulated_response = data["partial_content"]
                             break
@@ -676,81 +656,68 @@ def retry_last_response(chat_history, session_id):
                             else:
                                 accumulated_response += data["token"]
                             
-                            # Ensure format is correct when updating
-                            if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
-                                chat_history[last_assistant_idx] = {
-                                    "role": "assistant",
-                                    "content": accumulated_response
-                                }
+                            chat_history[last_assistant_idx] = {
+                                "role": "assistant",
+                                "content": accumulated_response
+                            }
                             yield chat_history, session_id
                             
-                    except json.JSONDecodeError as e:
-                        print(f"⚠️ Retry: JSON decode error: {e}, line: {line.decode('utf-8', errors='ignore')[:100]}")
+                    except json.JSONDecodeError:
                         continue
                     except Exception as e:
                         print(f"❌ Retry: Error processing stream line: {e}")
-                        traceback.print_exc()
                         continue
             
-            # After streaming completes, only show error if we have no content
-            if not accumulated_response and not stopped:
-                # No content received and wasn't stopped - show error
-                error_msg = "No response received from the model."
-                print(f"⚠️ Retry: {error_msg}")
-                if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
-                    chat_history[last_assistant_idx] = {
-                        "role": "assistant",
-                        "content": error_msg
-                    }
-                yield chat_history, session_id
+            # Final update
+            if accumulated_response:
+                chat_history[last_assistant_idx] = {
+                    "role": "assistant",
+                    "content": accumulated_response.strip()
+                }
             else:
-                # Content is already set from streaming, just yield final state
-                # Ensure format is correct
-                print(f"✅ Retry: Completed successfully, response length: {len(accumulated_response)}")
-                if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
-                    chat_history[last_assistant_idx] = {
-                        "role": "assistant",
-                        "content": accumulated_response.strip() if accumulated_response else ""
-                    }
-                yield chat_history, session_id
+                chat_history[last_assistant_idx] = {
+                    "role": "assistant",
+                    "content": "No response received from the model."
+                }
+            
+            yield chat_history, session_id
                 
         except requests.exceptions.RequestException as e:
             error_msg = f"Connection error: {str(e)}"
-            print(f"❌ Retry: Request exception: {error_msg}")
-            traceback.print_exc()
-            # Ensure error message is in correct format
-            if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
-                chat_history[last_assistant_idx] = {
-                    "role": "assistant",
-                    "content": error_msg
-                }
+            print(f"❌ Retry: {error_msg}")
+            chat_history[last_assistant_idx] = {
+                "role": "assistant",
+                "content": error_msg
+            }
             yield chat_history, session_id
+            
     except Exception as e:
         error_msg = f"Unexpected error: {str(e)}"
         print(f"❌ Retry: {error_msg}")
         traceback.print_exc()
-        # Ensure error message is in correct format
-        # Need to find last_assistant_idx if not already set
-        last_assistant_idx = None
-        if chat_history:
-            for i in range(len(chat_history) - 1, -1, -1):
-                if isinstance(chat_history[i], dict) and chat_history[i].get("role") == "assistant":
-                    last_assistant_idx = i
-                    break
         
-        if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+        # Ensure we return valid format
+        if not chat_history:
+            chat_history = []
+        
+        # Find last assistant message or create new one
+        last_assistant_idx = None
+        for i in range(len(chat_history) - 1, -1, -1):
+            if isinstance(chat_history[i], dict) and chat_history[i].get("role") == "assistant":
+                last_assistant_idx = i
+                break
+        
+        if last_assistant_idx is not None:
             chat_history[last_assistant_idx] = {
                 "role": "assistant",
                 "content": error_msg
             }
         else:
-            # Create new error message if no assistant message found
-            if not chat_history:
-                chat_history = []
             chat_history.append({
                 "role": "assistant",
                 "content": error_msg
             })
+        
         yield chat_history, session_id
 
 # Load CSS and JS from external files
@@ -766,7 +733,6 @@ with gr.Blocks(title="Chattie") as demo:
             <div id="logo-icon">💬</div>
             <h1 id="logo-text">Chattie</h1>
         </div>
-        <div id="session-id-container" style="display: none;"></div>
     """)
     
     # Welcome section
@@ -896,11 +862,11 @@ with gr.Blocks(title="Chattie") as demo:
     
     # Load event to initialize session_id in JavaScript container
     def initialize_session_id(session_id):
-        """Return the session_id so JS can set window.__SESSION_ID__"""
-        return session_id
+        """Return HTML that sets the session_id in the container"""
+        return f'<div id="session-id-container" data-session-id="{session_id}" style="display: none;"></div>'
     
-    # Hidden HTML component for load event
-    session_id_display = gr.HTML(visible=False, elem_id="session-id-display")
+    # Replace the hidden HTML component
+    session_id_display = gr.HTML(visible=True, elem_id="session-id-display")
     
     # Load event to set initial session_id in JavaScript
     demo.load(
@@ -911,13 +877,13 @@ with gr.Blocks(title="Chattie") as demo:
         function(session_id) {
             if (typeof window !== 'undefined' && session_id) {
                 window.__SESSION_ID__ = session_id;
-                const container = document.getElementById('session-id-container');
-                if (container) {
-                    container.setAttribute('data-session-id', session_id);
-                    console.log('📝 Session ID initialized from Python:', session_id);
-                }
+                console.log('📝 Session ID initialized from Python:', session_id);
+                
+                // Also trigger a custom event so edit script knows session is ready
+                const event = new CustomEvent('sessionIdReady', { detail: { sessionId: session_id } });
+                document.dispatchEvent(event);
             }
-            return '';
+            return session_id;
         }
         """
     )

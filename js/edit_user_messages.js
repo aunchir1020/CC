@@ -2,7 +2,12 @@
     // Function to get session ID from Python (stored in container)
     // Only uses Python session_id - no JavaScript generation
     function getSessionId() {
-        // Read from container (set by Python on page load and when messages are sent)
+        // Method 1: Check window global first (fastest)
+        if (typeof window.__SESSION_ID__ !== 'undefined' && window.__SESSION_ID__) {
+            return window.__SESSION_ID__;
+        }
+        
+        // Method 2: Read from container
         const container = document.getElementById('session-id-container');
         if (container && container.getAttribute('data-session-id')) {
             const sessionId = container.getAttribute('data-session-id');
@@ -10,15 +15,30 @@
             return sessionId;
         }
         
-        // Fallback: use window global if set
-        if (typeof window.__SESSION_ID__ !== 'undefined' && window.__SESSION_ID__) {
-            return window.__SESSION_ID__;
+        // Method 3: Read from session-id-display (new method)
+        const display = document.getElementById('session-id-display');
+        if (display) {
+            const displayContainer = display.querySelector('#session-id-container');
+            if (displayContainer) {
+                const sessionId = displayContainer.getAttribute('data-session-id');
+                if (sessionId) {
+                    window.__SESSION_ID__ = sessionId;
+                    return sessionId;
+                }
+            }
         }
         
-        // If not available yet, return undefined (should be set by Python)
-        console.warn('⚠️ Session ID not available - waiting for Python to set it');
+        console.warn('⚠️ Session ID not available yet');
         return undefined;
     }
+    
+    // Listen for sessionIdReady event from Python
+    document.addEventListener('sessionIdReady', function(event) {
+        if (event.detail && event.detail.sessionId) {
+            window.__SESSION_ID__ = event.detail.sessionId;
+            console.log('✅ Session ID received from Python event:', event.detail.sessionId);
+        }
+    });
     
     const API_BASE = '__API_BASE_URL__';
     
@@ -716,8 +736,42 @@
                     console.log('⏳ Set loading indicator on bot message (preserving structure)');
                 }
                 
-                // Get current session_id (must be available; provided by Python on load)
-                const currentSessionId = getSessionId();
+                // Get current session_id - wait if not available yet
+                let currentSessionId = getSessionId();
+
+                // If not available, wait for sessionIdReady event
+                if (!currentSessionId) {
+                    console.log('⏳ Waiting for session ID...');
+                    
+                    // Wait up to 3 seconds for session ID
+                    const maxWait = 3000;
+                    const startTime = Date.now();
+                    
+                    await new Promise((resolve) => {
+                        const checkInterval = setInterval(() => {
+                            currentSessionId = getSessionId();
+                            if (currentSessionId) {
+                                clearInterval(checkInterval);
+                                resolve();
+                            } else if (Date.now() - startTime > maxWait) {
+                                clearInterval(checkInterval);
+                                resolve();
+                            }
+                        }, 100);
+                        
+                        // Also listen for event
+                        const handler = (event) => {
+                            if (event.detail && event.detail.sessionId) {
+                                currentSessionId = event.detail.sessionId;
+                                document.removeEventListener('sessionIdReady', handler);
+                                clearInterval(checkInterval);
+                                resolve();
+                            }
+                        };
+                        document.addEventListener('sessionIdReady', handler);
+                    });
+                }
+
                 console.log('📝 Using session_id for edit:', currentSessionId);
 
                 if (!currentSessionId) {
@@ -774,84 +828,84 @@
                             console.warn('⚠️ Reader error:', err);
                             return { done: true, value: null };
                         });
-                    if (done) break;
-                    
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
-                    
-                    for (const line of lines) {
-                        if (!line.trim()) continue;
+                        if (done) break;
                         
-                        try {
-                            const data = JSON.parse(line);
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                        
+                        for (const line of lines) {
+                            if (!line.trim()) continue;
                             
-                            if (data.error) {
-                                if (botMessageElement) {
-                                    botMessageElement.textContent = `Error: ${data.error}`;
-                                }
-                                break;
-                            }
-                            
-                            if (data.token) {
-                                accumulatedResponse += data.token;
+                            try {
+                                const data = JSON.parse(line);
                                 
-                                // Update bot message with accumulated response (preserve structure)
-                                if (botMessageElement && textNodeToUpdate) {
-                                    if (firstToken) {
-                                        // Remove loading dots and show first token
-                                        // Update only text content, never replace innerHTML
-                                        textNodeToUpdate.textContent = accumulatedResponse.trim();
-                                        firstToken = false;
-                                        console.log('✅ First token received, updating bot message');
-                                    } else {
-                                        // Update accumulated response
-                                        textNodeToUpdate.textContent = accumulatedResponse;
+                                if (data.error) {
+                                    if (botMessageElement) {
+                                        botMessageElement.textContent = `Error: ${data.error}`;
                                     }
-                                } else if (botMessageElement) {
-                                    // Fallback if textNodeToUpdate not found
-                                    botMessageElement.textContent = accumulatedResponse;
-                                } else {
-                                    console.warn('⚠️ Token received but botMessageElement is null');
+                                    break;
                                 }
-                            }
-                            
-                            if (data.stopped) {
-                                if (botMessageElement && accumulatedResponse) {
-                                    // Final update preserving structure
-                                    if (textNodeToUpdate) {
-                                        textNodeToUpdate.textContent = accumulatedResponse.trim();
+                                
+                                if (data.token) {
+                                    accumulatedResponse += data.token;
+                                    
+                                    // Update bot message with accumulated response (preserve structure)
+                                    if (botMessageElement && textNodeToUpdate) {
+                                        if (firstToken) {
+                                            // Remove loading dots and show first token
+                                            // Update only text content, never replace innerHTML
+                                            textNodeToUpdate.textContent = accumulatedResponse.trim();
+                                            firstToken = false;
+                                            console.log('✅ First token received, updating bot message');
+                                        } else {
+                                            // Update accumulated response
+                                            textNodeToUpdate.textContent = accumulatedResponse;
+                                        }
+                                    } else if (botMessageElement) {
+                                        // Fallback if textNodeToUpdate not found
+                                        botMessageElement.textContent = accumulatedResponse;
                                     } else {
-                                        botMessageElement.textContent = accumulatedResponse.trim();
+                                        console.warn('⚠️ Token received but botMessageElement is null');
                                     }
                                 }
-                                break;
+                                
+                                if (data.stopped) {
+                                    if (botMessageElement && accumulatedResponse) {
+                                        // Final update preserving structure
+                                        if (textNodeToUpdate) {
+                                            textNodeToUpdate.textContent = accumulatedResponse.trim();
+                                        } else {
+                                            botMessageElement.textContent = accumulatedResponse.trim();
+                                        }
+                                    }
+                                    break;
+                                }
+                            } catch (e) {
+                                // Skip invalid JSON lines
+                                console.warn('⚠️ Failed to parse JSON:', line);
                             }
-                        } catch (e) {
-                            // Skip invalid JSON lines
-                            console.warn('⚠️ Failed to parse JSON:', line);
                         }
                     }
-                }
-                
-                // Final update (preserve structure)
-                if (botMessageElement && accumulatedResponse) {
-                    if (textNodeToUpdate) {
-                        textNodeToUpdate.textContent = accumulatedResponse.trim();
-                    } else {
-                        botMessageElement.textContent = accumulatedResponse.trim();
+                    
+                    // Final update (preserve structure)
+                    if (botMessageElement && accumulatedResponse) {
+                        if (textNodeToUpdate) {
+                            textNodeToUpdate.textContent = accumulatedResponse.trim();
+                        } else {
+                            botMessageElement.textContent = accumulatedResponse.trim();
+                        }
+                    }
+                    
+                    // Don't touch button containers - just let Gradio handle them naturally
+                    // The existing bot message structure is preserved, just replaced the text content
+                } catch (error) {
+                    console.error('❌ Error in streaming response:', error);
+                    // Handle streaming errors - update UI to show error
+                    if (botMessageElement) {
+                        botMessageElement.textContent = `Error: ${error.message || 'Failed to update message'}`;
                     }
                 }
-                
-                // Don't touch button containers - just let Gradio handle them naturally
-                // The existing bot message structure is preserved, just replaced the text content
-            } catch (error) {
-                console.error('❌ Error in streaming response:', error);
-                // Handle streaming errors - update UI to show error
-                if (botMessageElement) {
-                    botMessageElement.textContent = `Error: ${error.message || 'Failed to update message'}`;
-                }
-            }
             } catch (error) {
                 console.error('❌ Error sending edited message:', error);
                 alert('Error updating message. Please try again.');
