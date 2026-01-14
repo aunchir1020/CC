@@ -149,6 +149,7 @@ def load_js():
                         const sessionId = container.getAttribute('data-session-id');
                         if (sessionId) {
                             window.__SESSION_ID__ = sessionId;
+                            updateSessionIdDisplay(sessionId);
                             console.log('📝 Session ID updated from Python:', sessionId);
                         }
                     }
@@ -165,6 +166,7 @@ def load_js():
                 const sessionId = getSessionId();
                 if (sessionId) {
                     window.__SESSION_ID__ = sessionId;
+                    updateSessionIdDisplay(sessionId);
                     console.log('📝 Session ID found via polling:', sessionId);
                     clearInterval(pollInterval);
                 } else {
@@ -179,6 +181,14 @@ def load_js():
             }
         }, 100);
     })();
+
+    // Update session ID display when it becomes available
+    function updateSessionIdDisplay(sessionId) {
+        const display = document.getElementById('session-id-display');
+        if (display && sessionId) {
+            display.textContent = `Session: ${sessionId.substring(0, 8)}...`;
+        }
+    }
     """
     js_content_parts.append(session_id_js)
     
@@ -762,8 +772,13 @@ with gr.Blocks(title="Chattie") as demo:
     # Logo
     gr.HTML("""
         <div id="logo-container">
-            <div id="logo-icon">💬</div>
-            <h1 id="logo-text">Chattie</h1>
+            <div id="logo-left">
+                <div id="logo-icon">💬</div>
+                <h1 id="logo-text">Chattie</h1>
+            </div>
+            <div id="session-info">
+                <span id="session-id-display">Session: Loading...</span>
+            </div>
         </div>
     """)
     
@@ -922,9 +937,15 @@ with gr.Blocks(title="Chattie") as demo:
                     document.body.appendChild(newContainer);
                 }
                 
+                // Update the display
+                const display = document.getElementById('session-id-display');
+                if (display) {
+                    display.textContent = 'Session: ' + session_id.substring(0, 8) + '...';
+                }
+
                 // Also trigger a custom event so edit script knows session is ready
-                const event = new CustomEvent('sessionIdReady', { 
-                    detail: { sessionId: session_id } 
+                const event = new CustomEvent('sessionIdReady', {
+                    detail: { sessionId: session_id }
                 });
                 document.dispatchEvent(event);
             }
