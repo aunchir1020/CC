@@ -11,7 +11,8 @@
     let textbox = null;
     let originalPlaceholder = null;
     
-    const SPEECH_TO_TEXT_API = 'http://localhost:8000/speech-to-text/';
+    // Use relative URL since Gradio is mounted into FastAPI on the same port
+    const SPEECH_TO_TEXT_API = window.location.origin + '/speech-to-text/';
     
     // Initialize microphone button handlers
     function setupMicrophoneButton() {

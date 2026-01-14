@@ -1,6 +1,7 @@
 (function() {
     const SESSION_ID = '__SESSION_ID__';
-    const API_BASE = 'http://localhost:8000';
+    // Use relative URL since Gradio is mounted into FastAPI on the same port
+    const API_BASE = window.location.origin;
     
     // Setup edit button functionality
     function setupEditButton() {

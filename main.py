@@ -707,32 +707,8 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
         outputs=[chatbot]
     )
 
-if __name__ == "__main__":
-    print("=" * 60)
-    print("🚀 Starting Chattie - AI Chat Assistant")
-    print("=" * 60)
-    print(f"📋 Session ID: {session_id}")
-    print("🔗 Backend API: http://localhost:8000")
-    print("🌐 Frontend URL: http://localhost:7860")
-    print("=" * 60)
-    print("\n⚠️  Make sure your FastAPI backend is running!")
-    print("   Run: python -m uvicorn api:app --reload --port 8000\n")
-    
-    # Get server configuration from environment variables
-    # Render provides PORT environment variable - use it if available
-    server_name = os.getenv("GRADIO_SERVER_NAME", "0.0.0.0")
-    # Use Render's PORT if available, otherwise use GRADIO_SERVER_PORT or default 7860
-    render_port = os.getenv("PORT")
-    if render_port:
-        server_port = int(render_port)
-    else:
-        server_port = int(os.getenv("GRADIO_SERVER_PORT", "7860"))
-    inbrowser = os.getenv("GRADIO_INBROWSER", "false").lower() == "true"
-    
-    demo.queue()
-    demo.launch(
-        server_name=server_name,
-        server_port=server_port,
-        share=False,
-        inbrowser=inbrowser,
-    )
+# Initialize queue for the demo
+demo.queue()
+
+# Keep the demo available for mounting into FastAPI
+# The demo will be mounted in api.py using gr.mount_gradio_app()

@@ -2,28 +2,11 @@
 set -e
 
 echo "🚀 Starting Chattie Application..."
+echo "📡 Starting FastAPI with Gradio mounted..."
 
-# Start FastAPI backend in background
-echo "📡 Starting FastAPI backend on port 8000..."
-python -m uvicorn api:app --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
+# Use Render's PORT if available, otherwise default to 8000
+PORT=${PORT:-8000}
 
-# Wait for backend to be ready
-echo "⏳ Waiting for backend to start..."
-sleep 5
-
-# Check if backend is running
-if ! kill -0 $BACKEND_PID 2>/dev/null; then
-    echo "❌ Backend failed to start!"
-    exit 1
-fi
-
-echo "✅ Backend is running (PID: $BACKEND_PID)"
-
-# Start Gradio frontend
-# Render sets PORT environment variable - Gradio will use it automatically
-echo "🎨 Starting Gradio frontend..."
-python main.py
-
-# Keep container running
-wait $BACKEND_PID
+# Start FastAPI (with Gradio mounted)
+# Both backend API and frontend UI are served from the same port
+python -m uvicorn api:app --host 0.0.0.0 --port $PORT
