@@ -704,7 +704,9 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
         chatbot = gr.Chatbot(
             height=None,
             show_label=False,
-            container=False
+            container=False,
+            # We use {"role","content"} messages everywhere (respond/retry/edit)
+            type="messages"
         )
 
     # Chat input
@@ -783,8 +785,8 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
     
     # Load event to initialize session_id in JavaScript container
     def initialize_session_id(session_id):
-        """Return empty HTML - session_id is set via JavaScript"""
-        return ""
+        """Return the session_id so JS can set window.__SESSION_ID__"""
+        return session_id
     
     # Hidden HTML component for load event
     session_id_display = gr.HTML(visible=False, elem_id="session-id-display")

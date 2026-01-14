@@ -716,9 +716,21 @@
                     console.log('⏳ Set loading indicator on bot message (preserving structure)');
                 }
                 
-                // Get current session_id (may have been updated)
+                // Get current session_id (must be available; provided by Python on load)
                 const currentSessionId = getSessionId();
                 console.log('📝 Using session_id for edit:', currentSessionId);
+
+                if (!currentSessionId) {
+                    const msg = 'Error: Session ID not available. Please refresh the page and try again.';
+                    console.error('❌', msg);
+                    // Replace loading indicator with error (preserve structure)
+                    if (textNodeToUpdate) {
+                        textNodeToUpdate.textContent = msg;
+                    } else if (botMessageElement) {
+                        botMessageElement.textContent = msg;
+                    }
+                    return;
+                }
                 
                 // Call the edit API endpoint and stream the response
                 const response = await fetch(`${API_BASE}/chat/edit/`, {
@@ -736,7 +748,13 @@
                 });
                 
                 if (!response || !response.ok) {
-                    throw new Error(`HTTP error! status: ${response ? response.status : 'no response'}`);
+                    const msg = `Error: Edit request failed (status ${response ? response.status : 'no response'}).`;
+                    if (textNodeToUpdate) {
+                        textNodeToUpdate.textContent = msg;
+                    } else if (botMessageElement) {
+                        botMessageElement.textContent = msg;
+                    }
+                    throw new Error(msg);
                 }
                 
                 // Read streaming response
