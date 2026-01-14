@@ -940,7 +940,7 @@ with gr.Blocks(title="Chattie") as demo:
                 // Update the display
                 const display = document.getElementById('session-id-display');
                 if (display) {
-                    display.textContent = 'Session: ' + session_id.substring(0, 8) + '...';
+                    display.textContent = `Session: ${sessionId}`;
                 }
 
                 // Also trigger a custom event so edit script knows session is ready
