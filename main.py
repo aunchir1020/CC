@@ -17,8 +17,7 @@ API_URL = f"{BASE_API_URL}/chat/"
 RETRY_API_URL = f"{BASE_API_URL}/chat/retry/"
 EDIT_API_URL = f"{BASE_API_URL}/chat/edit/"
 
-# Store session ID globally
-session_id = str(uuid.uuid4())
+# Session ID will be generated per user session using Gradio State
 
 # Global variable to track active streaming response for cancellation
 active_stream_response = None
@@ -118,6 +117,23 @@ def load_js():
     """
     js_content_parts.append(set_favicon)
     
+    # Generate session ID code for JavaScript (each browser tab gets unique session)
+    generate_session_id_js = """
+    // Generate unique session ID for this browser tab
+    function generateSessionId() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+    // Store session ID in a global variable (generated once per page load)
+    if (typeof window.__SESSION_ID__ === 'undefined') {
+        window.__SESSION_ID__ = generateSessionId();
+    }
+    """
+    js_content_parts.append(generate_session_id_js)
+    
     # Load JavaScript files from js folder
     js_dir = os.path.join(os.path.dirname(__file__), 'js')
     
@@ -136,7 +152,7 @@ def load_js():
     if os.path.exists(edit_js_path):
         with open(edit_js_path, 'r', encoding='utf-8') as f:
             edit_js = f.read()
-            edit_js = edit_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            edit_js = edit_js.replace("'__SESSION_ID__'", "window.__SESSION_ID__")
             edit_js = edit_js.replace("__API_BASE_URL__", js_api_base)
             js_content_parts.append(edit_js)
 
@@ -145,7 +161,7 @@ def load_js():
     if os.path.exists(stop_js_path):
         with open(stop_js_path, 'r', encoding='utf-8') as f:
             stop_js = f.read()
-            stop_js = stop_js.replace("'__SESSION_ID__'", f"'{session_id}'")
+            stop_js = stop_js.replace("'__SESSION_ID__'", "window.__SESSION_ID__")
             stop_js = stop_js.replace("__API_BASE_URL__", js_api_base)
             js_content_parts.append(stop_js)
 
@@ -165,7 +181,7 @@ def check_input(text):
 
 # Send user message to FastAPI backend and stream the response
 # Returns: (response_text, is_stopped) as a tuple
-def chat_with_llm(message, history):
+def chat_with_llm(message, history, session_id):
     global active_stream_response, STOP_STREAMING
     
     if not message.strip():
@@ -349,7 +365,7 @@ def chat_with_llm(message, history):
         gc.collect()
 
 # Generate response
-def respond(message, chat_history):
+def respond(message, chat_history, session_id):
     chat_history = chat_history or []
 
     # Add user message
@@ -372,7 +388,7 @@ def respond(message, chat_history):
     error_occurred = False
     
     try:
-        for partial, is_stopped in chat_with_llm(message, chat_history):
+        for partial, is_stopped in chat_with_llm(message, chat_history, session_id):
             if is_stopped:
                 stopped = is_stopped
                 break  # Stop streaming loop if stopped
@@ -435,10 +451,10 @@ def respond(message, chat_history):
     if not error_occurred:
         yield chat_history  # Streaming finished normally
 
-def submit_and_respond_welcome(message, history, started):
+def submit_and_respond_welcome(message, history, started, session_id):
     try:
         if not message.strip():
-            return "", history, started, gr.update(), gr.update(), gr.update()
+            return "", history, started, gr.update(), gr.update(), gr.update(), session_id
 
         # Ensure history is a list
         if history is None:
@@ -447,7 +463,7 @@ def submit_and_respond_welcome(message, history, started):
         started = True
         first_yield = True
 
-        for updated_history in respond(message, history):
+        for updated_history in respond(message, history, session_id):
             if first_yield:
                 yield (
                     "",                      # clear welcome textbox
@@ -456,10 +472,11 @@ def submit_and_respond_welcome(message, history, started):
                     gr.update(visible=False),# hide welcome_section
                     gr.update(visible=True), # show chat_section
                     gr.update(visible=True), # SHOW input_chat (bottom)
+                    session_id               # pass through session_id
                 )
                 first_yield = False
             else:
-                yield "", updated_history, started, gr.update(), gr.update(), gr.update()
+                yield "", updated_history, started, gr.update(), gr.update(), gr.update(), session_id
     except Exception as e:
         # Catch any errors and return error message
         traceback.print_exc()
@@ -467,20 +484,20 @@ def submit_and_respond_welcome(message, history, started):
         if history is None:
             history = []
         history.append({"role": "assistant", "content": error_msg})
-        yield "", history, True, gr.update(), gr.update(), gr.update()
+        yield "", history, True, gr.update(), gr.update(), gr.update(), session_id
 
-def submit_and_respond_chat(message, history, started):
+def submit_and_respond_chat(message, history, started, session_id):
     try:
         if not message.strip():
-            return "", history
+            return "", history, session_id
         
         # Ensure history is a list
         if history is None:
             history = []
         
         # Normal new message flow
-        for updated_history in respond(message, history):
-            yield "", updated_history
+        for updated_history in respond(message, history, session_id):
+            yield "", updated_history, session_id
     except Exception as e:
         # Catch any errors and return error message
         traceback.print_exc()
@@ -489,12 +506,12 @@ def submit_and_respond_chat(message, history, started):
         if history is None:
             history = []
         history.append({"role": "assistant", "content": error_msg})
-        yield "", history
+        yield "", history, session_id
 
 # Retry generating the last bot response
-def retry_last_response(chat_history):
+def retry_last_response(chat_history, session_id):
     if not chat_history or len(chat_history) < 2:
-        return chat_history or []
+        return chat_history or [], session_id
     
     # Make a copy to avoid mutating the original
     chat_history = list(chat_history) if chat_history else []
@@ -507,7 +524,7 @@ def retry_last_response(chat_history):
             break
     
     if last_assistant_idx is None:
-        return chat_history
+        return chat_history, session_id
     
     # Show loading
     chat_history[last_assistant_idx] = {
@@ -524,7 +541,7 @@ def retry_last_response(chat_history):
         
         if response.status_code != 200:
             chat_history[last_assistant_idx]["content"] = f"Error: API returned status code {response.status_code}"
-            yield chat_history
+            yield chat_history, session_id
             return
         
         accumulated_response = ""
@@ -540,7 +557,7 @@ def retry_last_response(chat_history):
                         error_msg = data['error']
                         # Display error message in bot message
                         chat_history[last_assistant_idx]["content"] = error_msg
-                        yield chat_history
+                        yield chat_history, session_id
                         return
                     
                     # Check if backend stopped the stream
@@ -558,7 +575,7 @@ def retry_last_response(chat_history):
                             accumulated_response += data["token"]
                         
                         chat_history[last_assistant_idx]["content"] = accumulated_response
-                        yield chat_history
+                        yield chat_history, session_id
                         
                 except json.JSONDecodeError:
                     continue
@@ -567,16 +584,16 @@ def retry_last_response(chat_history):
         if not accumulated_response and not stopped:
             # No content received and wasn't stopped - show error
             chat_history[last_assistant_idx]["content"] = "No response received from the model."
-            yield chat_history
+            yield chat_history, session_id
         else:
             # Content is already set from streaming (line 555), just yield final state
-            yield chat_history
+            yield chat_history, session_id
             
     except Exception as e:
         print(f"❌ Error in retry: {e}")
         traceback.print_exc()
         chat_history[last_assistant_idx]["content"] = f"Error: {str(e)}"
-        yield chat_history
+        yield chat_history, session_id
 
 # Load CSS and JS from external files
 custom_css = load_css()
@@ -675,6 +692,7 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
             )
 
     chat_started = gr.State(False)
+    session_id_state = gr.State(lambda: str(uuid.uuid4()))
     
     # Enable/disable buttons based on input
     msg_welcome.change(fn=check_input, inputs=[msg_welcome], outputs=[submit_btn_welcome], queue=False)
@@ -683,42 +701,42 @@ with gr.Blocks(title="Chattie", css=custom_css, js=custom_js) as demo:
     # Welcome input handlers
     submit_btn_welcome.click(
         fn=submit_and_respond_welcome,
-        inputs=[msg_welcome, chatbot, chat_started],
-        outputs=[msg_welcome, chatbot, chat_started, welcome_section, chat_section, input_chat]
+        inputs=[msg_welcome, chatbot, chat_started, session_id_state],
+        outputs=[msg_welcome, chatbot, chat_started, welcome_section, chat_section, input_chat, session_id_state]
     )
 
     msg_welcome.submit(
         fn=submit_and_respond_welcome,
-        inputs=[msg_welcome, chatbot, chat_started],
-        outputs=[msg_welcome, chatbot, chat_started, welcome_section, chat_section, input_chat]
+        inputs=[msg_welcome, chatbot, chat_started, session_id_state],
+        outputs=[msg_welcome, chatbot, chat_started, welcome_section, chat_section, input_chat, session_id_state]
     )
 
     # Chat input handlers
     submit_btn_chat.click(
         fn=submit_and_respond_chat,
-        inputs=[msg_chat, chatbot, chat_started],
-        outputs=[msg_chat, chatbot]
+        inputs=[msg_chat, chatbot, chat_started, session_id_state],
+        outputs=[msg_chat, chatbot, session_id_state]
     )
 
     msg_chat.submit(
         fn=submit_and_respond_chat,
-        inputs=[msg_chat, chatbot, chat_started],
-        outputs=[msg_chat, chatbot]
+        inputs=[msg_chat, chatbot, chat_started, session_id_state],
+        outputs=[msg_chat, chatbot, session_id_state]
     )
 
     # Retry button handler
     chatbot.retry(
         fn=retry_last_response,
-        inputs=[chatbot],
-        outputs=[chatbot]
+        inputs=[chatbot, session_id_state],
+        outputs=[chatbot, session_id_state]
     )
 
 if __name__ == "__main__":
     print("=" * 60)
     print("🚀 Starting Chattie - AI Chat Assistant")
     print("=" * 60)
-    print(f"📋 Session ID: {session_id}")
     print(f"🔗 Backend API: {BASE_API_URL}")
+    print("📋 Session IDs are generated per user session")
     print("=" * 60)
     
     # Get server configuration from environment variables

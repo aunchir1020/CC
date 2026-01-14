@@ -35,7 +35,7 @@
         function isStreaming() {
             const now = Date.now();
             
-            // Method 1: Check for loading dots
+            // Check for loading dots
             const loadingDotsSelectors = [
                 '.loading-dots',
                 '[class*="loading-dots"]',
@@ -75,7 +75,7 @@
                 }
             }
             
-            // Method 2: Check if last bot message is actively growing
+            // Check if last bot message is actively growing
             const chatbotContainer = document.querySelector('.gradio-chatbot, [class*="chatbot"]');
             const botMessages = chatbotContainer 
                 ? chatbotContainer.querySelectorAll('.message.bot, .message-wrap.bot .message')
@@ -98,10 +98,10 @@
                         }
                         
                         const timeSinceDotsDisappeared = now - loadingDotsDisappearedAt;
-                        // Give 5 seconds grace period after loading dots disappear
+                        // Give 10 seconds grace period after loading dots disappear
                         // This allows time for first token to arrive
-                        if (timeSinceDotsDisappeared < 5000) {
-                            console.log(`⏳ Grace period: waiting for first token (${Math.round((5000 - timeSinceDotsDisappeared) / 1000)}s remaining)`);
+                        if (timeSinceDotsDisappeared < 10000) {
+                            console.log(`⏳ Grace period: waiting for first token (${Math.round((10000 - timeSinceDotsDisappeared) / 1000)}s remaining)`);
                             return true; // Still consider it streaming during grace period
                         } else {
                             // Grace period expired, no content arrived
@@ -137,12 +137,12 @@
                         }
                         
                         streamingTimeout = setTimeout(() => {
-                            console.log('📊 Streaming finished: no content change for 10s');
+                            console.log('📊 Streaming finished: no content change for 15s');
                             isCurrentlyStreaming = false;
                             lastBotMessageLength = currentLength;
                             stopMonitoring();
                             updateButtonState();
-                        }, 10000); // Increased to 10 seconds for long messages
+                        }, 15000); // Increased to 15 seconds for long messages
                         
                         return true;
                     }
@@ -161,18 +161,18 @@
                                     lastBotMessageLength = currentLength;
                                     stopMonitoring();
                                     updateButtonState();
-                                }, 10000); // Increased to 10 seconds for long messages
+                                }, 15000); // Increased to 15 seconds for long messages
                                 
                                 return true;
                             }
                             
                             const timeSinceLastChange = now - lastContentCheck;
-                            // Increased timeout to 10 seconds to handle long messages with pauses
-                            if (timeSinceLastChange < 10000) {
+                            // Increased timeout to 15 seconds to handle long messages with pauses
+                            if (timeSinceLastChange < 15000) {
                                 return true;
                             } else {
-                                // Only stop if no change for 10 seconds (longer pause indicates streaming finished)
-                                console.log('📊 Streaming finished: no content change for 10s');
+                                // Only stop if no change for 15 seconds (longer pause indicates streaming finished)
+                                console.log('📊 Streaming finished: no content change for 15s');
                                 isCurrentlyStreaming = false;
                                 lastBotMessageLength = currentLength;
                                 stopMonitoring();
@@ -191,12 +191,12 @@
                             }
                             
                             const timeSinceDotsDisappeared = now - loadingDotsDisappearedAt;
-                            // Give 5 seconds grace period after loading dots disappear
+                            // Give 10 seconds grace period after loading dots disappear
                             // This allows time for first token to arrive
-                            if (timeSinceDotsDisappeared < 5000) {
+                            if (timeSinceDotsDisappeared < 10000) {
                                 // Still in grace period after loading dots disappeared
                                 // Wait for first token to arrive
-                                console.log(`⏳ Grace period: waiting for content (${Math.round((5000 - timeSinceDotsDisappeared) / 1000)}s remaining)`);
+                                console.log(`⏳ Grace period: waiting for content (${Math.round((10000 - timeSinceDotsDisappeared) / 1000)}s remaining)`);
                                 return true;
                             } else {
                                 // Grace period expired, no content arrived
