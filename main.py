@@ -128,8 +128,11 @@ def load_js():
             return sessionId;
         }
         
-        // If not set yet, return undefined (will be set when first message is sent)
-        console.warn('⚠️ Session ID not yet available - will be set when first message is sent');
+        // Fallback: use window global if set
+        if (typeof window.__SESSION_ID__ !== 'undefined' && window.__SESSION_ID__) {
+            return window.__SESSION_ID__;
+        }
+        
         return undefined;
     }
     
@@ -153,6 +156,28 @@ def load_js():
             });
             observer.observe(container, { attributes: true });
         }
+        
+        // Poll for session_id if not set (fallback for load event issues)
+        let pollCount = 0;
+        const maxPolls = 20; // Poll for 2 seconds (20 * 100ms)
+        const pollInterval = setInterval(function() {
+            if (!window.__SESSION_ID__ || window.__SESSION_ID__ === undefined) {
+                const sessionId = getSessionId();
+                if (sessionId) {
+                    window.__SESSION_ID__ = sessionId;
+                    console.log('📝 Session ID found via polling:', sessionId);
+                    clearInterval(pollInterval);
+                } else {
+                    pollCount++;
+                    if (pollCount >= maxPolls) {
+                        console.warn('⚠️ Session ID not found after polling, will be set on first message');
+                        clearInterval(pollInterval);
+                    }
+                }
+            } else {
+                clearInterval(pollInterval);
+            }
+        }, 100);
     })();
     """
     js_content_parts.append(session_id_js)
@@ -533,112 +558,199 @@ def submit_and_respond_chat(message, history, started, session_id):
 
 # Retry generating the last bot response
 def retry_last_response(chat_history, session_id):
-    if not chat_history or len(chat_history) < 2:
-        return chat_history or [], session_id
-    
-    # Make a copy to avoid mutating the original
-    chat_history = list(chat_history) if chat_history else []
-    
-    # Convert Gradio tuple format to dictionary format if needed
-    # Gradio can pass messages as tuples: (user_message, bot_message)
-    # or as dictionaries: {"role": "user", "content": "..."}
-    converted_history = []
-    for msg in chat_history:
-        if isinstance(msg, dict) and "role" in msg and "content" in msg:
-            # Already in dictionary format
-            converted_history.append(msg)
-        elif isinstance(msg, (list, tuple)) and len(msg) == 2:
-            # Tuple format: (user_message, bot_message)
-            # Convert to dictionary format
-            user_msg, bot_msg = msg
-            if user_msg:
-                converted_history.append({"role": "user", "content": str(user_msg)})
-            if bot_msg:
-                converted_history.append({"role": "assistant", "content": str(bot_msg)})
-        else:
-            # Try to handle other formats - skip invalid ones
-            print(f"⚠️ Warning: Skipping invalid message format: {type(msg)}")
-            continue
-    
-    chat_history = converted_history
-    
-    # Find the last assistant message index
-    last_assistant_idx = None
-    for i in range(len(chat_history) - 1, -1, -1):
-        if chat_history[i]["role"] == "assistant":
-            last_assistant_idx = i
-            break
-    
-    if last_assistant_idx is None:
-        return converted_history if converted_history else [], session_id
-    
-    # Show loading
-    chat_history[last_assistant_idx] = {
-        "role": "assistant",
-        "content": '<span class="loading-dots"><span></span><span></span><span></span></span>'
-    }
-    yield chat_history
-    
-    # Call retry API
-    payload = {"session_id": session_id, "message": ""}
-    
     try:
-        response = requests.post(RETRY_API_URL, json=payload, stream=True, timeout=60)
+        print(f"🔄 Retry called with session_id: {session_id}, chat_history length: {len(chat_history) if chat_history else 0}")
         
-        if response.status_code != 200:
-            chat_history[last_assistant_idx]["content"] = f"Error: API returned status code {response.status_code}"
-            yield chat_history, session_id
-            return
+        if not chat_history or len(chat_history) < 2:
+            print("⚠️ Retry: Chat history too short or empty")
+            # Return empty list in messages format
+            return [], session_id
         
-        accumulated_response = ""
-        first_token = True
-        stopped = False
+        # Make a copy to avoid mutating the original
+        chat_history = list(chat_history) if chat_history else []
+        print(f"📋 Retry: Processing {len(chat_history)} messages")
         
-        for line in response.iter_lines():
-            if line:
-                try:
-                    data = json.loads(line.decode('utf-8'))
-                    
-                    if "error" in data:
-                        error_msg = data['error']
-                        # Display error message in bot message
-                        chat_history[last_assistant_idx]["content"] = error_msg
-                        yield chat_history, session_id
-                        return
-                    
-                    # Check if backend stopped the stream
-                    if "stopped" in data and data["stopped"]:
-                        stopped = True
-                        if "partial_content" in data:
-                            accumulated_response = data["partial_content"]
-                        break
-                    
-                    if "token" in data:
-                        if first_token and data["token"].strip():
-                            accumulated_response = data["token"].strip()
-                            first_token = False
-                        else:
-                            accumulated_response += data["token"]
-                        
-                        chat_history[last_assistant_idx]["content"] = accumulated_response
-                        yield chat_history, session_id
-                        
-                except json.JSONDecodeError:
+        # Convert Gradio tuple format to dictionary format if needed
+        # Gradio 6 uses messages format by default, but handle both for compatibility
+        converted_history = []
+        for idx, msg in enumerate(chat_history):
+            try:
+                if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    # Already in dictionary format - ensure it's valid
+                    converted_history.append({
+                        "role": str(msg.get("role", "")),
+                        "content": str(msg.get("content", ""))
+                    })
+                elif isinstance(msg, (list, tuple)) and len(msg) == 2:
+                    # Tuple format: (user_message, bot_message)
+                    # Convert to dictionary format
+                    user_msg, bot_msg = msg
+                    if user_msg:
+                        converted_history.append({"role": "user", "content": str(user_msg)})
+                    if bot_msg:
+                        converted_history.append({"role": "assistant", "content": str(bot_msg)})
+                else:
+                    # Try to handle other formats - skip invalid ones
+                    print(f"⚠️ Retry: Skipping invalid message format at index {idx}: {type(msg)}, value: {str(msg)[:100]}")
                     continue
+            except Exception as e:
+                print(f"❌ Retry: Error processing message at index {idx}: {e}")
+                traceback.print_exc()
+                continue
         
-        # After streaming completes, only show error if we have no content
-        if not accumulated_response and not stopped:
-            # No content received and wasn't stopped - show error
-            chat_history[last_assistant_idx]["content"] = "No response received from the model."
-            yield chat_history, session_id
-        else:
-            # Content is already set from streaming (line 555), just yield final state
-            yield chat_history, session_id
+        if not converted_history:
+            print("❌ Retry: No valid messages after conversion")
+            return [], session_id
+        
+        print(f"✅ Retry: Converted {len(converted_history)} valid messages")
+        chat_history = converted_history
+        
+        # Find the last assistant message index
+        last_assistant_idx = None
+        for i in range(len(chat_history) - 1, -1, -1):
+            if chat_history[i].get("role") == "assistant":
+                last_assistant_idx = i
+                break
+        
+        if last_assistant_idx is None:
+            print("⚠️ Retry: No assistant message found to retry")
+            return converted_history, session_id
+        
+        # Show loading - ensure format is correct
+        chat_history[last_assistant_idx] = {
+            "role": "assistant",
+            "content": '<span class="loading-dots"><span></span><span></span><span></span></span>'
+        }
+        yield chat_history
+        
+        # Call retry API
+        payload = {"session_id": session_id, "message": ""}
+        print(f"📤 Retry: Calling API at {RETRY_API_URL} with session_id: {session_id}")
+        
+        try:
+            response = requests.post(RETRY_API_URL, json=payload, stream=True, timeout=60)
             
+            if response.status_code != 200:
+                error_msg = f"Error: API returned status code {response.status_code}"
+                print(f"❌ Retry: {error_msg}")
+                if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+                    chat_history[last_assistant_idx] = {
+                        "role": "assistant",
+                        "content": error_msg
+                    }
+                yield chat_history, session_id
+                return
+            
+            accumulated_response = ""
+            first_token = True
+            stopped = False
+            
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        data = json.loads(line.decode('utf-8'))
+                        
+                        if "error" in data:
+                            error_msg = data['error']
+                            print(f"❌ Retry: Backend returned error: {error_msg}")
+                            # Display error message in bot message - ensure correct format
+                            if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+                                chat_history[last_assistant_idx] = {
+                                    "role": "assistant",
+                                    "content": error_msg
+                                }
+                            yield chat_history, session_id
+                            return
+                        
+                        # Check if backend stopped the stream
+                        if "stopped" in data and data["stopped"]:
+                            stopped = True
+                            if "partial_content" in data:
+                                accumulated_response = data["partial_content"]
+                            break
+                        
+                        if "token" in data:
+                            if first_token and data["token"].strip():
+                                accumulated_response = data["token"].strip()
+                                first_token = False
+                            else:
+                                accumulated_response += data["token"]
+                            
+                            # Ensure format is correct when updating
+                            if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+                                chat_history[last_assistant_idx] = {
+                                    "role": "assistant",
+                                    "content": accumulated_response
+                                }
+                            yield chat_history, session_id
+                            
+                    except json.JSONDecodeError as e:
+                        print(f"⚠️ Retry: JSON decode error: {e}, line: {line.decode('utf-8', errors='ignore')[:100]}")
+                        continue
+                    except Exception as e:
+                        print(f"❌ Retry: Error processing stream line: {e}")
+                        traceback.print_exc()
+                        continue
+            
+            # After streaming completes, only show error if we have no content
+            if not accumulated_response and not stopped:
+                # No content received and wasn't stopped - show error
+                error_msg = "No response received from the model."
+                print(f"⚠️ Retry: {error_msg}")
+                if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+                    chat_history[last_assistant_idx] = {
+                        "role": "assistant",
+                        "content": error_msg
+                    }
+                yield chat_history, session_id
+            else:
+                # Content is already set from streaming, just yield final state
+                # Ensure format is correct
+                print(f"✅ Retry: Completed successfully, response length: {len(accumulated_response)}")
+                if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+                    chat_history[last_assistant_idx] = {
+                        "role": "assistant",
+                        "content": accumulated_response.strip() if accumulated_response else ""
+                    }
+                yield chat_history, session_id
+                
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Connection error: {str(e)}"
+            print(f"❌ Retry: Request exception: {error_msg}")
+            traceback.print_exc()
+            # Ensure error message is in correct format
+            if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+                chat_history[last_assistant_idx] = {
+                    "role": "assistant",
+                    "content": error_msg
+                }
+            yield chat_history, session_id
     except Exception as e:
-        print(f"❌ Error in retry: {e}")
+        error_msg = f"Unexpected error: {str(e)}"
+        print(f"❌ Retry: {error_msg}")
         traceback.print_exc()
-        chat_history[last_assistant_idx]["content"] = f"Error: {str(e)}"
+        # Ensure error message is in correct format
+        # Need to find last_assistant_idx if not already set
+        last_assistant_idx = None
+        if chat_history:
+            for i in range(len(chat_history) - 1, -1, -1):
+                if isinstance(chat_history[i], dict) and chat_history[i].get("role") == "assistant":
+                    last_assistant_idx = i
+                    break
+        
+        if last_assistant_idx is not None and last_assistant_idx < len(chat_history):
+            chat_history[last_assistant_idx] = {
+                "role": "assistant",
+                "content": error_msg
+            }
+        else:
+            # Create new error message if no assistant message found
+            if not chat_history:
+                chat_history = []
+            chat_history.append({
+                "role": "assistant",
+                "content": error_msg
+            })
         yield chat_history, session_id
 
 # Load CSS and JS from external files
