@@ -16,9 +16,9 @@ import os
 import tiktoken
 
 # Configuration
-MAX_HISTORY_TOKENS = 2800  # Keep recent 2800 tokens of history
-MAX_USER_MESSAGE_TOKENS = 400  # Maximum tokens for user message
-MAX_MODEL_RESPONSE_TOKENS = 800  # Maximum tokens for model response per message
+MAX_HISTORY_TOKENS = 11000  # Keep recent 11000 tokens of history
+MAX_USER_MESSAGE_TOKENS = 1200  # Maximum tokens for user message
+MAX_MODEL_RESPONSE_TOKENS = 4096  # Maximum tokens for model response per message
 MODEL_NAME = "gpt-3.5-turbo"  # Model name for tiktoken encoding
 
 # Initialize tiktoken encoder for gpt-3.5-turbo
@@ -89,14 +89,14 @@ def chat_stream(session_id: str, user_message: str, db: Session):
         local_db.add(user_msg)
         local_db.commit()
         
-        # Check user message token count (max 400 tokens)
+        # Check user message token count (max 1000 tokens)
         user_message_tokens = count_tokens(user_message)
         if user_message_tokens > MAX_USER_MESSAGE_TOKENS:
             error_msg = "The message you submitted was too long, please edit it and resubmit."
             yield json.dumps({"error": error_msg}) + "\n"
             return
 
-        # Load chat history - limit to recent 2800 tokens
+        # Load chat history - limit to recent 11000 tokens
         all_messages = (
             local_db.query(ChatMessage)
             .filter(ChatMessage.session_id == session_id)
@@ -110,7 +110,7 @@ def chat_stream(session_id: str, user_message: str, db: Session):
             for m in all_messages
         ]
         
-        # Truncate history to keep recent 2800 tokens
+        # Truncate history to keep recent 11000 tokens
         # Start from the end and work backwards, keeping messages until limit reached
         total_tokens = 0
         truncated_history = []
@@ -141,7 +141,7 @@ def chat_stream(session_id: str, user_message: str, db: Session):
                     model=MODEL_NAME,
                     messages=chat_history,
                     stream=True,
-                    max_tokens=MAX_MODEL_RESPONSE_TOKENS  # Limit response to 700 tokens
+                    max_tokens=MAX_MODEL_RESPONSE_TOKENS  # Limit response to 4096 tokens
                 )
             except Exception as api_error:
                 error_msg = str(api_error)
@@ -183,7 +183,7 @@ def chat_stream(session_id: str, user_message: str, db: Session):
                         if content:
                             assistant_text += content
                             
-                            # Check token count - stop if exceeds 700 tokens
+                            # Check token count - stop if exceeds 4096 tokens
                             response_token_count = count_tokens(assistant_text)
                             if response_token_count >= MAX_MODEL_RESPONSE_TOKENS:
                                 # Stop streaming when limit reached
@@ -302,7 +302,7 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
                 yield json.dumps({"error": "No user message found to edit in this session"}) + "\n"
             return
         
-        # Check edited message token count before updating (max 400 tokens)
+        # Check edited message token count before updating (max 1000 tokens)
         edited_message_tokens = count_tokens(edited_message)
         if edited_message_tokens > MAX_USER_MESSAGE_TOKENS:
             error_msg = "The message you submitted was too long, please edit it and resubmit."
@@ -332,7 +332,7 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
             local_db.commit()
             print(f"🗑️ Backend: DELETED assistant message ID {assistant_id}")
         
-        # Get all remaining messages for context - limit to recent 2800 tokens
+        # Get all remaining messages for context - limit to recent 11000 tokens
         all_messages = (
             local_db.query(ChatMessage)
             .filter(ChatMessage.session_id == session_id)
@@ -346,7 +346,7 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
             for m in all_messages
         ]
         
-        # Truncate history to keep recent 2800 tokens
+        # Truncate history to keep recent 11000 tokens
         total_tokens = 0
         truncated_history = []
         
@@ -383,7 +383,7 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
                     messages=chat_history,
                     stream=True,
                     temperature=0.7,
-                    max_tokens=MAX_MODEL_RESPONSE_TOKENS  # Limit response to 700 tokens
+                    max_tokens=MAX_MODEL_RESPONSE_TOKENS  # Limit response to 4096 tokens
                 )
             except Exception as api_error:
                 error_msg = str(api_error)
@@ -420,7 +420,7 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
                     token = chunk.choices[0].delta.content
                     assistant_text += token
                     
-                    # Check token count - stop if exceeds 700 tokens
+                    # Check token count - stop if exceeds 4096 tokens
                     response_token_count = count_tokens(assistant_text)
                     if response_token_count >= MAX_MODEL_RESPONSE_TOKENS:
                         # Stop streaming when limit reached
@@ -507,7 +507,7 @@ def chat_retry_stream(session_id: str, db: Session):
         local_db.delete(last_assistant)
         local_db.commit()
         
-        # Get all messages before the deleted one for context - limit to recent 2800 tokens
+        # Get all messages before the deleted one for context - limit to recent 11000 tokens
         all_messages = (
             local_db.query(ChatMessage)
             .filter(ChatMessage.session_id == session_id)
@@ -521,7 +521,7 @@ def chat_retry_stream(session_id: str, db: Session):
             for m in all_messages
         ]
         
-        # Truncate history to keep recent 2800 tokens
+        # Truncate history to keep recent 11000 tokens
         total_tokens = 0
         truncated_history = []
         
@@ -553,7 +553,7 @@ def chat_retry_stream(session_id: str, db: Session):
                     model=MODEL_NAME,
                     messages=chat_history,
                     stream=True,
-                    max_tokens=MAX_MODEL_RESPONSE_TOKENS  # Limit response to 700 tokens
+                    max_tokens=MAX_MODEL_RESPONSE_TOKENS  # Limit response to 4096 tokens
                 )
             except Exception as api_error:
                 error_msg = str(api_error)
@@ -591,7 +591,7 @@ def chat_retry_stream(session_id: str, db: Session):
                     if content:
                         assistant_text += content
                         
-                        # Check token count - stop if exceeds 700 tokens
+                        # Check token count - stop if exceeds 4096 tokens
                         response_token_count = count_tokens(assistant_text)
                         if response_token_count >= MAX_MODEL_RESPONSE_TOKENS:
                             # Stop streaming when limit reached
