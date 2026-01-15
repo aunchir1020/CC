@@ -49,7 +49,12 @@
         let stopObserver = null;
         let periodicCheckInterval = null;
         let isMonitoring = false;
-        let buttonAttributeObserver = null; // NEW: Watch for Gradio changing button attributes
+        let buttonAttributeObserver = null; // Watch for Gradio changing button attributes
+        
+        // INCREASED TIMEOUTS for better stability
+        const GRACE_PERIOD_MS = 15000; // Increased from 10s to 15s - wait longer for first token
+        const STREAMING_TIMEOUT_MS = 25000; // Increased from 15s to 25s - wait longer for content changes
+        const MONITORING_DURATION_CHECKS = 100; // Increased from 60 to 100 checks (50 seconds)
         
         // Function to check if streaming is active
         function isStreaming() {
@@ -118,10 +123,9 @@
                         }
                         
                         const timeSinceDotsDisappeared = now - loadingDotsDisappearedAt;
-                        // Give 10 seconds grace period after loading dots disappear
-                        // This allows time for first token to arrive
-                        if (timeSinceDotsDisappeared < 10000) {
-                            console.log(`⏳ Grace period: waiting for first token (${Math.round((10000 - timeSinceDotsDisappeared) / 1000)}s remaining)`);
+                        // INCREASED: Grace period after loading dots disappear
+                        if (timeSinceDotsDisappeared < GRACE_PERIOD_MS) {
+                            console.log(`⏳ Grace period: waiting for first token (${Math.round((GRACE_PERIOD_MS - timeSinceDotsDisappeared) / 1000)}s remaining)`);
                             return true; // Still consider it streaming during grace period
                         } else {
                             // Grace period expired, no content arrived
@@ -156,13 +160,14 @@
                             clearTimeout(streamingTimeout);
                         }
                         
+                        // INCREASED: Timeout for content changes
                         streamingTimeout = setTimeout(() => {
-                            console.log('📊 Streaming finished: no content change for 15s');
+                            console.log(`📊 Streaming finished: no content change for ${STREAMING_TIMEOUT_MS / 1000}s`);
                             isCurrentlyStreaming = false;
                             lastBotMessageLength = currentLength;
                             stopMonitoring();
                             updateButtonState();
-                        }, 15000); // Increased to 15 seconds for long messages
+                        }, STREAMING_TIMEOUT_MS);
                         
                         return true;
                     }
@@ -181,18 +186,18 @@
                                     lastBotMessageLength = currentLength;
                                     stopMonitoring();
                                     updateButtonState();
-                                }, 15000); // Increased to 15 seconds for long messages
+                                }, STREAMING_TIMEOUT_MS);
                                 
                                 return true;
                             }
                             
                             const timeSinceLastChange = now - lastContentCheck;
-                            // Increased timeout to 15 seconds to handle long messages with pauses
-                            if (timeSinceLastChange < 15000) {
+                            // INCREASED: Timeout to handle long messages with pauses
+                            if (timeSinceLastChange < STREAMING_TIMEOUT_MS) {
                                 return true;
                             } else {
-                                // Only stop if no change for 15 seconds (longer pause indicates streaming finished)
-                                console.log('📊 Streaming finished: no content change for 15s');
+                                // Only stop if no change for the specified timeout
+                                console.log(`📊 Streaming finished: no content change for ${STREAMING_TIMEOUT_MS / 1000}s`);
                                 isCurrentlyStreaming = false;
                                 lastBotMessageLength = currentLength;
                                 stopMonitoring();
@@ -211,12 +216,11 @@
                             }
                             
                             const timeSinceDotsDisappeared = now - loadingDotsDisappearedAt;
-                            // Give 10 seconds grace period after loading dots disappear
-                            // This allows time for first token to arrive
-                            if (timeSinceDotsDisappeared < 10000) {
+                            // INCREASED: Grace period after loading dots disappear
+                            if (timeSinceDotsDisappeared < GRACE_PERIOD_MS) {
                                 // Still in grace period after loading dots disappeared
                                 // Wait for first token to arrive
-                                console.log(`⏳ Grace period: waiting for content (${Math.round((10000 - timeSinceDotsDisappeared) / 1000)}s remaining)`);
+                                console.log(`⏳ Grace period: waiting for content (${Math.round((GRACE_PERIOD_MS - timeSinceDotsDisappeared) / 1000)}s remaining)`);
                                 return true;
                             } else {
                                 // Grace period expired, no content arrived
@@ -255,7 +259,7 @@
             return isCurrentlyStreaming;
         }
         
-        // NEW: Force button to stay enabled during streaming
+        // Force button to stay enabled during streaming
         function forceButtonEnabled(button) {
             if (!button) return;
             
@@ -315,10 +319,10 @@
                 
                 console.log('✅ Button attribute observer started - will fight Gradio\'s disable attempts');
             }
-    }
-    
-    // Function to update button state based on streaming
-    function updateButtonState() {
+        }
+        
+        // Function to update button state based on streaming
+        function updateButtonState() {
             // Target the CHAT button specifically (not the welcome button)
             let button = document.querySelector('#upload-button-chat');
             
@@ -347,23 +351,23 @@
             if (!button) {
                 return; // Button not found
             }
-        
-        // If user is editing a message, disable the bottom send button
-        if (isEditingMessage()) {
-            button.disabled = true;
-            button.setAttribute('disabled', 'true');
-            button.style.pointerEvents = 'none';
-            button.style.cursor = 'not-allowed';
-            button.style.opacity = '0.5';
-            return; // Don't proceed with streaming checks when editing
-        }
-        
-        const streaming = isStreaming();
-        
+            
+            // If user is editing a message, disable the bottom send button
+            if (isEditingMessage()) {
+                button.disabled = true;
+                button.setAttribute('disabled', 'true');
+                button.style.pointerEvents = 'none';
+                button.style.cursor = 'not-allowed';
+                button.style.opacity = '0.5';
+                return; // Don't proceed with streaming checks when editing
+            }
+            
+            const streaming = isStreaming();
+            
             if (streaming) {
                 // Streaming active - show stop button
                 if (!button.classList.contains('stop-mode')) {
-                button.classList.add('stop-mode');
+                    button.classList.add('stop-mode');
                     console.log('🟦 Button → STOP mode (streaming detected)');
                 }
                 
@@ -530,10 +534,10 @@
                     button.style.opacity = '0.5';
                 }
             }
-    }
-    
-    // Function to handle stop button click
-    async function handleStopClick(e) {
+        }
+        
+        // Function to handle stop button click
+        async function handleStopClick(e) {
             // Target chat button specifically
             let button = e.target.closest('#upload-button-chat');
             if (!button) {
@@ -542,15 +546,15 @@
             if (!button) {
                 button = e.target.closest('[id*="upload-button"]');
             }
-        if (!button) return;
-        
-        // Only handle if in stop mode
+            if (!button) return;
+            
+            // Only handle if in stop mode
             if (!button.classList.contains('stop-mode')) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
+            
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
             console.log('🛑 Stop button clicked - stopping stream');
             
             // Mark that streaming was stopped by user
@@ -563,108 +567,108 @@
                 clearTimeout(streamingTimeout);
                 streamingTimeout = null;
             }
-        
-        // Get current session_id (from Python)
-        const currentSessionId = getSessionId();
-        if (!currentSessionId) {
-            console.error('❌ Cannot stop: Session ID not available');
-            return;
-        }
-        
-        // Call backend stop endpoint with proper error handling
-        try {
-            const response = await fetch(API_BASE + '/chat/stop/' + currentSessionId, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }).catch(err => {
-                // Handle network errors
-                console.warn('⚠️ Fetch error (network issue):', err);
-                return null;
-            });
             
-            if (response && response.ok) {
-                try {
-                const data = await response.json();
-                    console.log('✅ Stop request sent:', data);
-                } catch (jsonError) {
-                    console.warn('⚠️ Failed to parse stop response:', jsonError);
-                }
-            } else if (response) {
-                console.warn('⚠️ Failed to stop stream:', response.status);
+            // Get current session_id (from Python)
+            const currentSessionId = getSessionId();
+            if (!currentSessionId) {
+                console.error('❌ Cannot stop: Session ID not available');
+                return;
             }
-        } catch (error) {
-            // Silently handle errors - don't let them propagate as unhandled promises
-            console.error('❌ Error stopping stream:', error);
-        }
-        
-        // Force button state update with error handling
-        // After stop, check textbox content and update button accordingly
-        setTimeout(() => {
+            
+            // Call backend stop endpoint with proper error handling
             try {
-                // Get the button first
-                let updateButton = document.querySelector('#upload-button-chat');
-                if (!updateButton) {
-                    const buttons = document.querySelectorAll('.upload-button');
-                    for (let btn of buttons) {
-                        if (btn.offsetParent !== null) {
-                            updateButton = btn;
-                            break;
+                const response = await fetch(API_BASE + '/chat/stop/' + currentSessionId, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }).catch(err => {
+                    // Handle network errors
+                    console.warn('⚠️ Fetch error (network issue):', err);
+                    return null;
+                });
+                
+                if (response && response.ok) {
+                    try {
+                        const data = await response.json();
+                        console.log('✅ Stop request sent:', data);
+                    } catch (jsonError) {
+                        console.warn('⚠️ Failed to parse stop response:', jsonError);
+                    }
+                } else if (response) {
+                    console.warn('⚠️ Failed to stop stream:', response.status);
+                }
+            } catch (error) {
+                // Silently handle errors - don't let them propagate as unhandled promises
+                console.error('❌ Error stopping stream:', error);
+            }
+            
+            // Force button state update with error handling
+            // After stop, check textbox content and update button accordingly
+            setTimeout(() => {
+                try {
+                    // Get the button first
+                    let updateButton = document.querySelector('#upload-button-chat');
+                    if (!updateButton) {
+                        const buttons = document.querySelectorAll('.upload-button');
+                        for (let btn of buttons) {
+                            if (btn.offsetParent !== null) {
+                                updateButton = btn;
+                                break;
+                            }
                         }
                     }
-                }
-                
-                if (updateButton) {
-                    // Remove stop mode
-                    updateButton.classList.remove('stop-mode');
                     
-                    // Remove stop square
-                    const stopSquare = updateButton.querySelector('.stop-square');
-                    if (stopSquare) {
-                        stopSquare.remove();
+                    if (updateButton) {
+                        // Remove stop mode
+                        updateButton.classList.remove('stop-mode');
+                        
+                        // Remove stop square
+                        const stopSquare = updateButton.querySelector('.stop-square');
+                        if (stopSquare) {
+                            stopSquare.remove();
+                        }
+                        
+                        // Check textbox content
+                        const inputs = document.querySelectorAll('textarea[placeholder*="help"], textarea[data-testid*="textbox"], textarea');
+                        const input = inputs[0];
+                        const hasInput = input && input.value.trim().length > 0;
+                        
+                        // Update button state based on textbox content
+                        if (hasInput) {
+                            // Textbox has text - enable button
+                            updateButton.disabled = false;
+                            updateButton.removeAttribute('disabled');
+                            updateButton.style.pointerEvents = 'auto';
+                            updateButton.style.cursor = 'pointer';
+                            updateButton.style.opacity = '1';
+                            console.log('✅ Button → SEND mode (enabled - textbox has content)');
+                        } else {
+                            // Textbox is empty - disable button
+                            updateButton.disabled = true;
+                            updateButton.setAttribute('disabled', 'true');
+                            updateButton.style.pointerEvents = 'none';
+                            updateButton.style.cursor = 'not-allowed';
+                            updateButton.style.opacity = '0.5';
+                            console.log('✅ Button → SEND mode (disabled - textbox empty)');
+                        }
+                        
+                        // Ensure button is visible and positioned correctly
+                        updateButton.style.display = 'flex';
+                        updateButton.style.visibility = 'visible';
                     }
-                    
-                    // Check textbox content
-                    const inputs = document.querySelectorAll('textarea[placeholder*="help"], textarea[data-testid*="textbox"], textarea');
-                    const input = inputs[0];
-                    const hasInput = input && input.value.trim().length > 0;
-                    
-                    // Update button state based on textbox content
-                    if (hasInput) {
-                        // Textbox has text - enable button
-                        updateButton.disabled = false;
-                        updateButton.removeAttribute('disabled');
-                        updateButton.style.pointerEvents = 'auto';
-                        updateButton.style.cursor = 'pointer';
-                        updateButton.style.opacity = '1';
-                        console.log('✅ Button → SEND mode (enabled - textbox has content)');
-                    } else {
-                        // Textbox is empty - disable button
-                        updateButton.disabled = true;
-                        updateButton.setAttribute('disabled', 'true');
-                        updateButton.style.pointerEvents = 'none';
-                        updateButton.style.cursor = 'not-allowed';
-                        updateButton.style.opacity = '0.5';
-                        console.log('✅ Button → SEND mode (disabled - textbox empty)');
-                    }
-                    
-                    // Ensure button is visible and positioned correctly
-                    updateButton.style.display = 'flex';
-                    updateButton.style.visibility = 'visible';
+                } catch (err) {
+                    console.warn('⚠️ Error updating button state:', err);
                 }
-            } catch (err) {
-                console.warn('⚠️ Error updating button state:', err);
-            }
-        }, 200);
-    }
+            }, 200);
+        }
         
         // Debounce function
         let updateTimeout = null;
         function debouncedUpdateButtonState() {
             if (updateTimeout) clearTimeout(updateTimeout);
             updateTimeout = setTimeout(() => {
-            updateButtonState();
+                updateButtonState();
             }, 100);
         }
         
@@ -725,8 +729,8 @@
                         updateButtonState();
                     }
                     
-                    // Keep monitoring longer for long messages (up to 60 checks = 30 seconds)
-                    if (checkCount > 60 && !isCurrentlyStreaming) {
+                    // INCREASED: Keep monitoring longer for long messages
+                    if (checkCount > MONITORING_DURATION_CHECKS && !isCurrentlyStreaming) {
                         stopMonitoring();
                     }
                 }, 500);
@@ -901,9 +905,9 @@
                     
                     textbox.setAttribute('data-stop-script-listener', 'true');
                     console.log('✅ Textbox input and Enter key listener attached');
-                    }
-                });
-            }
+                }
+            });
+        }
         
         // Initial check
         function initialCheck() {
