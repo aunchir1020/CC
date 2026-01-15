@@ -239,6 +239,16 @@ def load_js():
     
     return '\n\n'.join(js_content_parts)
 
+# Load event to initialize session_id in JavaScript container
+def initialize_session_id(session_id):
+    """Return HTML that sets the session_id in the container"""
+    # Ensure session_id is a string, not a function
+    if callable(session_id):
+        session_id = str(uuid.uuid4())
+    elif not isinstance(session_id, str):
+        session_id = str(session_id) if session_id else str(uuid.uuid4())
+    return f'<div id="session-id-container" data-session-id="{session_id}" style="display: none;"></div>'
+
 def check_input(text):
     """Check if input is empty and return button state."""
     return gr.update(interactive=bool(text.strip()))
@@ -744,7 +754,6 @@ def retry_last_response(chat_history, session_id):
         print(f"❌ Retry: {error_msg}")
         traceback.print_exc()
         
-        # Ensure we return valid format
         if not chat_history:
             chat_history = []
         
@@ -912,16 +921,6 @@ with gr.Blocks(title="Chattie") as demo:
         inputs=[chatbot, session_id_state],
         outputs=[chatbot, session_id_state]
     )
-    
-    # Load event to initialize session_id in JavaScript container
-    def initialize_session_id(session_id):
-        """Return HTML that sets the session_id in the container"""
-        # Ensure session_id is a string, not a function
-        if callable(session_id):
-            session_id = str(uuid.uuid4())
-        elif not isinstance(session_id, str):
-            session_id = str(session_id) if session_id else str(uuid.uuid4())
-        return f'<div id="session-id-container" data-session-id="{session_id}" style="display: none;"></div>'
     
     # Replace the hidden HTML component
     session_id_display = gr.HTML(visible=True, elem_id="session-id-display")

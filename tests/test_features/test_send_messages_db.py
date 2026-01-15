@@ -54,7 +54,7 @@ class TestUserSendMessages:
                 try:
                     data = json.loads(line)
                     if "error" in data:
-                        # If there's an error, we should fail the test
+                        # If there's an error, then fail the test
                         pytest.fail(f"API returned error: {data['error']}")
                     elif "token" in data:
                         # Accumulate tokens to build the full message

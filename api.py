@@ -1,3 +1,10 @@
+import uuid
+import json
+import threading
+import tempfile
+import os
+import tiktoken
+
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,13 +14,6 @@ from sqlalchemy.orm import Session
 from openai import OpenAI
 from env import OPENAI_API_KEY
 from database import ChatMessage, get_db, SessionLocal
-
-import uuid
-import json
-import threading
-import tempfile
-import os
-import tiktoken
 
 # Configuration
 MAX_HISTORY_TOKENS = 11000  # Keep recent 11000 tokens of history
