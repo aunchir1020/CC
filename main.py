@@ -185,8 +185,14 @@ def load_js():
     function updateSessionIdDisplay(sessionId) {
         const display = document.getElementById('session-id-display');
         if (display && sessionId) {
-            // Show the full session id instead of a shortened version
-            display.textContent = `Session: ${sessionId}`;
+            // Check if sessionId is a valid string (not a function representation)
+            const sessionIdStr = String(sessionId);
+            if (sessionIdStr.includes('<function') || sessionIdStr.includes('<lambda')) {
+                display.textContent = 'Session: -';
+            } else {
+                // Show the full session id instead of a shortened version
+                display.textContent = `Session: ${sessionIdStr}`;
+            }
         }
     }
     """
@@ -910,6 +916,11 @@ with gr.Blocks(title="Chattie") as demo:
     # Load event to initialize session_id in JavaScript container
     def initialize_session_id(session_id):
         """Return HTML that sets the session_id in the container"""
+        # Ensure session_id is a string, not a function
+        if callable(session_id):
+            session_id = str(uuid.uuid4())
+        elif not isinstance(session_id, str):
+            session_id = str(session_id) if session_id else str(uuid.uuid4())
         return f'<div id="session-id-container" data-session-id="{session_id}" style="display: none;"></div>'
     
     # Replace the hidden HTML component
@@ -923,35 +934,57 @@ with gr.Blocks(title="Chattie") as demo:
         js="""
         function(session_id) {
             if (typeof window !== 'undefined' && session_id) {
-                window.__SESSION_ID__ = session_id;
-                console.log('📝 Session ID initialized from Python:', session_id);
+                // Check if session_id is a valid string (not a function representation)
+                const sessionIdStr = String(session_id);
+                let validSessionId = session_id;
                 
-                // Set in container immediately
-                const container = document.getElementById('session-id-container');
-                if (!container) {
-                    // Create container if it doesn't exist
-                    const newContainer = document.createElement('div');
-                    newContainer.id = 'session-id-container';
-                    newContainer.setAttribute('data-session-id', session_id);
-                    newContainer.style.display = 'none';
-                    document.body.appendChild(newContainer);
+                if (sessionIdStr.includes('<function') || sessionIdStr.includes('<lambda')) {
+                    // Invalid session_id (function object), use "-" for display
+                    validSessionId = null;
+                    console.warn('⚠️ Invalid session_id received (function object), using fallback');
+                } else {
+                    window.__SESSION_ID__ = session_id;
+                    console.log('📝 Session ID initialized from Python:', session_id);
+                }
+                
+                // Set in container immediately (only if valid)
+                if (validSessionId) {
+                    const container = document.getElementById('session-id-container');
+                    if (!container) {
+                        // Create container if it doesn't exist
+                        const newContainer = document.createElement('div');
+                        newContainer.id = 'session-id-container';
+                        newContainer.setAttribute('data-session-id', session_id);
+                        newContainer.style.display = 'none';
+                        document.body.appendChild(newContainer);
+                    }
                 }
                 
                 // Update the display
                 const display = document.getElementById('session-id-display');
                 if (display) {
-                    // Show the full session id here as well
-                    display.textContent = `Session: ${session_id}`;
+                    if (validSessionId) {
+                        // Show the full session id here as well
+                        display.textContent = `Session: ${session_id}`;
+                    } else {
+                        // Show "-" for invalid session_id
+                        display.textContent = 'Session: -';
+                    }
                 }
 
-                // Also trigger a custom event so edit script knows session is ready
-                const event = new CustomEvent('sessionIdReady', {
-                    detail: { sessionId: session_id }
-                });
-                document.dispatchEvent(event);
+                // Also trigger a custom event so edit script knows session is ready (only if valid)
+                if (validSessionId) {
+                    const event = new CustomEvent('sessionIdReady', {
+                        detail: { sessionId: session_id }
+                    });
+                    document.dispatchEvent(event);
+                }
             }
             // IMPORTANT: Return the HTML string, not the session_id
-            return '<div id="session-id-container" data-session-id="' + session_id + '" style="display: none;"></div>';
+            // Use "-" if session_id is invalid
+            const sessionIdStr = String(session_id || '');
+            const safeSessionId = (sessionIdStr.includes('<function') || sessionIdStr.includes('<lambda')) ? '-' : session_id;
+            return '<div id="session-id-container" data-session-id="' + safeSessionId + '" style="display: none;"></div>';
         }
         """
     )

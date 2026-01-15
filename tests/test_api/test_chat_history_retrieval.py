@@ -41,7 +41,7 @@ class TestChatHistoryStorage:
             # Create many messages so total tokens > MAX_HISTORY_TOKENS
             base_text = "This is a token-rich message used for history testing. " * 5
             seeded_messages = []
-            for i in range(60):
+            for i in range(180):
                 role = "user" if i % 2 == 0 else "assistant"
                 content = f"History message {i}: " + base_text
                 msg = ChatMessage(

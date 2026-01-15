@@ -253,7 +253,7 @@ Uses **pytest** as the testing framework with the following approach:
 ### Limitations & Bugs
 - The app may occasionally behave inconsistently on Render due to container restarts and hosting environment constraints.
 - SQLite storage on Render is ephemeral, meaning all chat history may be lost when the service restarts or redeploys.
+- Test coverage is limited to core functionalities; some edge cases and UI interactions are not fully covered, and there is currently no automated UI testing in place.
 - The stop button switches back to the send button too quickly, making it difficult for users to effectively interrupt the assistant’s streaming response.
 - Message version tracking is not supported, so previous versions of edited or retried messages cannot be viewed or restored.
 - The input textbox scroll area can extend beneath the microphone or send button, causing text to be partially blocked when scrolling.
-- Message box styling becomes inconsistent after canceling an edit operation, leading to minor UI visual inconsistencies.
