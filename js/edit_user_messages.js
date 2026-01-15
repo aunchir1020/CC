@@ -7,7 +7,8 @@
             const sid = window.__SESSION_ID__;
             // Validate it's a string and looks like a UUID
             if (typeof sid === 'string' && sid.length > 10 && !sid.includes('function')) {
-                return sid;
+                // Trim whitespace before returning
+                return sid.trim();
             }
         }
         
@@ -16,8 +17,10 @@
         if (container && container.getAttribute('data-session-id')) {
             const sessionId = container.getAttribute('data-session-id');
             if (sessionId && typeof sessionId === 'string' && sessionId.length > 10) {
-                window.__SESSION_ID__ = sessionId;
-                return sessionId;
+                // Trim whitespace before storing
+                const trimmedId = sessionId.trim();
+                window.__SESSION_ID__ = trimmedId;
+                return trimmedId;
             }
         }
         
@@ -30,7 +33,7 @@
                 // Extract session ID from HTML string
                 const match = htmlContent.match(/data-session-id="([^"]+)"/);
                 if (match && match[1]) {
-                    const sessionId = match[1];
+                    const sessionId = match[1].trim();
                     window.__SESSION_ID__ = sessionId;
                     console.log('📝 Extracted session ID from display HTML:', sessionId);
                     return sessionId;
@@ -42,8 +45,9 @@
             if (displayContainer) {
                 const sessionId = displayContainer.getAttribute('data-session-id');
                 if (sessionId && typeof sessionId === 'string' && sessionId.length > 10) {
-                    window.__SESSION_ID__ = sessionId;
-                    return sessionId;
+                    const trimmedId = sessionId.trim();
+                    window.__SESSION_ID__ = trimmedId;
+                    return trimmedId;
                 }
             }
         }
@@ -53,9 +57,10 @@
         for (const cont of allContainers) {
             const sid = cont.getAttribute('data-session-id');
             if (sid && typeof sid === 'string' && sid.length > 10) {
-                window.__SESSION_ID__ = sid;
-                console.log('📝 Found session ID in page:', sid);
-                return sid;
+                const trimmedId = sid.trim();
+                window.__SESSION_ID__ = trimmedId;
+                console.log('📝 Found session ID in page:', trimmedId);
+                return trimmedId;
             }
         }
         
@@ -68,8 +73,10 @@
         if (event.detail && event.detail.sessionId) {
             const sid = event.detail.sessionId;
             if (typeof sid === 'string' && !sid.includes('function')) {
-                window.__SESSION_ID__ = sid;
-                console.log('✅ Session ID received from Python event:', sid);
+                // Trim whitespace before storing
+                const trimmedId = sid.trim();
+                window.__SESSION_ID__ = trimmedId;
+                console.log('✅ Session ID received from Python event:', trimmedId);
             } else {
                 console.error('❌ Invalid session ID from event:', sid);
             }
@@ -808,14 +815,16 @@
                     
                     await new Promise((resolve) => {
                         const checkInterval = setInterval(() => {
-                            currentSessionId = getSessionId();
-                            
-                            // Validate format
-                            if (currentSessionId && typeof currentSessionId === 'string' && 
-                                !currentSessionId.includes('function') && currentSessionId.length > 10) {
-                                console.log('✅ Session ID found:', currentSessionId);
-                                clearInterval(checkInterval);
-                                resolve();
+                            const retrievedId = getSessionId();
+                            if (retrievedId) {
+                                // Trim whitespace and validate format
+                                currentSessionId = retrievedId.trim();
+                                if (typeof currentSessionId === 'string' && 
+                                    !currentSessionId.includes('function') && currentSessionId.length > 10) {
+                                    console.log('✅ Session ID found:', currentSessionId);
+                                    clearInterval(checkInterval);
+                                    resolve();
+                                }
                             } else if (Date.now() - startTime > maxWait) {
                                 console.error('⏰ Timeout waiting for session ID');
                                 clearInterval(checkInterval);
@@ -828,8 +837,9 @@
                             if (event.detail && event.detail.sessionId) {
                                 const sid = event.detail.sessionId;
                                 if (typeof sid === 'string' && !sid.includes('function') && sid.length > 10) {
-                                    currentSessionId = sid;
-                                    console.log('✅ Session ID from event:', sid);
+                                    // Trim whitespace before storing
+                                    currentSessionId = sid.trim();
+                                    console.log('✅ Session ID from event:', currentSessionId);
                                     document.removeEventListener('sessionIdReady', handler);
                                     clearInterval(checkInterval);
                                     resolve();
@@ -859,6 +869,10 @@
                     return;
                 }
                 
+                // Trim whitespace from session ID before sending
+                const trimmedSessionId = currentSessionId.trim();
+                console.log('📤 Sending edit request with session_id:', trimmedSessionId.substring(0, 8) + '...');
+                
                 // Call the edit API endpoint and stream the response
                 const response = await fetch(`${API_BASE}/chat/edit/`, {
                     method: 'POST',
@@ -866,7 +880,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        session_id: currentSessionId,
+                        session_id: trimmedSessionId,
                         message: editedText
                     })
                 }).catch(err => {

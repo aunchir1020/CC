@@ -71,6 +71,9 @@ class ChatRequest(BaseModel):
     message: str
 
 def chat_stream(session_id: str, user_message: str, db: Session):
+    # Trim whitespace from session_id to ensure proper matching
+    session_id = session_id.strip() if isinstance(session_id, str) else str(session_id).strip()
+    
     # Create cancellation event for this session
     with streaming_lock:
         stop_event = threading.Event()
@@ -256,7 +259,13 @@ async def chat(data: ChatRequest, db: Session = Depends(get_db)):
         return {"error": "Message cannot be empty."}
 
     # Use provided session_id or create a new unique one
-    session_id = data.session_id or str(uuid.uuid4())
+    # Trim whitespace from session_id to ensure proper matching
+    if data.session_id and isinstance(data.session_id, str):
+        session_id = data.session_id.strip()
+    elif data.session_id:
+        session_id = str(data.session_id).strip()
+    else:
+        session_id = str(uuid.uuid4())
 
     # Stream response token by token back to the client
     return StreamingResponse(
@@ -266,6 +275,9 @@ async def chat(data: ChatRequest, db: Session = Depends(get_db)):
 
 def chat_edit_stream(session_id: str, edited_message: str, db: Session):
     """Edit the last user message and regenerate bot response - UPDATES existing records"""
+    # Trim whitespace from session_id to ensure proper matching
+    session_id = session_id.strip() if isinstance(session_id, str) else str(session_id).strip()
+    
     # Create cancellation event for this session
     with streaming_lock:
         stop_event = threading.Event()
@@ -276,7 +288,7 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
     
     try:
         # Validate session_id
-        if not session_id or not isinstance(session_id, str) or len(session_id.strip()) == 0:
+        if not session_id or not isinstance(session_id, str) or len(session_id) == 0:
             yield json.dumps({"error": "Invalid session ID provided"}) + "\n"
             return
         
@@ -297,6 +309,16 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
                 .first()
             )
             if not session_exists:
+                # Log for debugging - check if there are any similar session IDs
+                similar_sessions = (
+                    local_db.query(ChatMessage.session_id)
+                    .distinct()
+                    .limit(5)
+                    .all()
+                )
+                print(f"⚠️ Edit: No session found for ID: {session_id[:8]}... (length: {len(session_id)})")
+                if similar_sessions:
+                    print(f"   Available sessions: {[s[0][:8] + '...' for s in similar_sessions]}")
                 yield json.dumps({"error": f"No chat session found with session ID: {session_id[:8]}..."}) + "\n"
             else:
                 yield json.dumps({"error": "No user message found to edit in this session"}) + "\n"
@@ -470,7 +492,8 @@ async def chat_edit(data: ChatRequest, db: Session = Depends(get_db)):
     if not data.message:
         return {"error": "Edited message is required"}
     
-    session_id = data.session_id
+    # Trim whitespace from session_id to avoid matching issues
+    session_id = data.session_id.strip() if isinstance(data.session_id, str) else str(data.session_id).strip()
     edited_message = data.message
     
     # Stream response token by token back to the client
@@ -481,6 +504,9 @@ async def chat_edit(data: ChatRequest, db: Session = Depends(get_db)):
 
 def chat_retry_stream(session_id: str, db: Session):
     """Retry the last assistant message by deleting it and regenerating"""
+    # Trim whitespace from session_id to ensure proper matching
+    session_id = session_id.strip() if isinstance(session_id, str) else str(session_id).strip()
+    
     # Create cancellation event for this session (reuse same session_id)
     with streaming_lock:
         stop_event = threading.Event()
@@ -638,7 +664,8 @@ async def chat_retry(data: ChatRequest, db: Session = Depends(get_db)):
     if not data.session_id:
         return {"error": "Session ID is required for retry"}
     
-    session_id = data.session_id
+    # Trim whitespace from session_id to ensure proper matching
+    session_id = data.session_id.strip() if isinstance(data.session_id, str) else str(data.session_id).strip()
     
     # Stream response token by token back to the client
     return StreamingResponse(
