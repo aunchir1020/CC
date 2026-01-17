@@ -14,20 +14,6 @@
         }
     });
     
-    // Debug helper - check session ID periodically
-    let debugCheckCount = 0;
-    const debugInterval = setInterval(() => {
-        debugCheckCount++;
-        const sid = getSessionId();
-        if (sid && typeof sid === 'string' && !sid.includes('function') && sid.length > 10) {
-            console.log('✅ Session ID validated:', sid.substring(0, 8) + '...');
-            clearInterval(debugInterval);
-        } else if (debugCheckCount > 20) {
-            console.warn('⚠️ Session ID not available after 2 seconds');
-            clearInterval(debugInterval);
-        }
-    }, 100);
-    
     const API_BASE = '__API_BASE_URL__';
     
     // Setup edit button functionality
@@ -725,7 +711,7 @@
                 }
                 
                 // Get current session_id - wait if not available yet
-                let currentSessionId = getSessionId();
+                let currentSessionId = window.__SESSION_ID__;
 
                 // Validate session ID format
                 if (currentSessionId && typeof currentSessionId === 'string') {
@@ -746,7 +732,7 @@
                     
                     await new Promise((resolve) => {
                         const checkInterval = setInterval(() => {
-                            const retrievedId = getSessionId();
+                            const retrievedId = window.__SESSION_ID__;
                             if (retrievedId) {
                                 // Trim whitespace and validate format
                                 currentSessionId = retrievedId.trim();
