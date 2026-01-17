@@ -241,14 +241,13 @@ def load_js():
 
 # Load event to initialize session_id in JavaScript container
 def initialize_session_id(session_id):
-    """Return HTML that sets the session_id in the container"""
-    # Ensure session_id is a string, not a function
-    if callable(session_id):
-        session_id = str(uuid.uuid4())
-    elif not isinstance(session_id, str):
-        session_id = str(session_id) if session_id else str(uuid.uuid4())
-    return f'<div id="session-id-container" data-session-id="{session_id}" style="display: none;"></div>'
-
+    """Generate new UUID on page load and return HTML + UUID for state"""
+    # Generate new UUID every time (each page load/refresh gets new session)
+    new_session_id = str(uuid.uuid4())
+    html = f'<div id="session-id-container" data-session-id="{new_session_id}" style="display: none;"></div>'
+    # Return both HTML for display and UUID for state
+    return html, new_session_id
+    
 def check_input(text):
     """Check if input is empty and return button state."""
     return gr.update(interactive=bool(text.strip()))
@@ -527,6 +526,10 @@ def respond(message, chat_history, session_id):
 
 def submit_and_respond_welcome(message, history, started, session_id):
     try:
+        # Safety check: generate UUID if None (shouldn't happen after demo.load(), but just in case)
+        if session_id is None:
+            session_id = str(uuid.uuid4())
+        
         if not message.strip():
             return "", history, started, gr.update(), gr.update(), gr.update(), session_id
 
@@ -562,6 +565,10 @@ def submit_and_respond_welcome(message, history, started, session_id):
 
 def submit_and_respond_chat(message, history, started, session_id):
     try:
+        # Safety check: generate UUID if None (shouldn't happen after demo.load(), but just in case)
+        if session_id is None:
+            session_id = str(uuid.uuid4())
+        
         if not message.strip():
             return "", history, session_id
         
@@ -585,6 +592,10 @@ def submit_and_respond_chat(message, history, started, session_id):
 # Retry generating the last bot response
 def retry_last_response(chat_history, session_id):
     try:
+        # Safety check: generate UUID if None (shouldn't happen after demo.load(), but just in case)
+        if session_id is None:
+            session_id = str(uuid.uuid4())
+        
         print(f"🔄 Retry called with session_id: {session_id}")
         print(f"📋 Chat history type: {type(chat_history)}")
         print(f"📋 Chat history length: {len(chat_history) if chat_history else 0}")
@@ -882,8 +893,8 @@ with gr.Blocks(title="Chattie") as demo:
     chat_started = gr.State(False)
     # Session ID: Each browser tab gets a unique session_id (isolated chat history)
     # Page refresh generates a new session_id (new chat session)
-    # gr.State resets on refresh, so lambda generates new UUID each time
-    session_id_state = gr.State(lambda: str(uuid.uuid4()))
+    # UUID is generated in demo.load() on each page load/refresh
+    session_id_state = gr.State(value=None)
     
     # Enable/disable buttons based on input
     msg_welcome.change(fn=check_input, inputs=[msg_welcome], outputs=[submit_btn_welcome], queue=False)
@@ -925,29 +936,25 @@ with gr.Blocks(title="Chattie") as demo:
     # Replace the hidden HTML component
     session_id_display = gr.HTML(visible=True, elem_id="session-id-display")
     
-    # Load event to set initial session_id in JavaScript
+    # Load event to generate and set initial session_id
+    # Generates new UUID on every page load/refresh and syncs to both DOM and state
     demo.load(
         fn=initialize_session_id,
         inputs=[session_id_state],
-        outputs=[session_id_display],
+        outputs=[session_id_display, session_id_state],
         js="""
-        function(session_id) {
-            if (typeof window !== 'undefined' && session_id) {
-                // Check if session_id is a valid string (not a function representation)
-                const sessionIdStr = String(session_id);
-                let validSessionId = session_id;
-                
-                if (sessionIdStr.includes('<function') || sessionIdStr.includes('<lambda')) {
-                    // Invalid session_id (function object), use "-" for display
-                    validSessionId = null;
-                    console.warn('⚠️ Invalid session_id received (function object), using fallback');
-                } else {
+        function(html_output) {
+            // html_output is the HTML string returned from initialize_session_id
+            // Extract session_id from the HTML's data-session-id attribute
+            if (typeof window !== 'undefined' && html_output) {
+                // Parse the HTML to extract session_id
+                const match = html_output.match(/data-session-id="([^"]+)"/);
+                if (match && match[1]) {
+                    const session_id = match[1];
                     window.__SESSION_ID__ = session_id;
                     console.log('📝 Session ID initialized from Python:', session_id);
-                }
-                
-                // Set in container immediately (only if valid)
-                if (validSessionId) {
+                    
+                    // Set in container immediately
                     const container = document.getElementById('session-id-container');
                     if (!container) {
                         // Create container if it doesn't exist
@@ -956,34 +963,28 @@ with gr.Blocks(title="Chattie") as demo:
                         newContainer.setAttribute('data-session-id', session_id);
                         newContainer.style.display = 'none';
                         document.body.appendChild(newContainer);
-                    }
-                }
-                
-                // Update the display
-                const display = document.getElementById('session-id-display');
-                if (display) {
-                    if (validSessionId) {
-                        // Show the full session id here as well
-                        display.textContent = `Session: ${session_id}`;
                     } else {
-                        // Show "-" for invalid session_id
-                        display.textContent = 'Session: -';
+                        // Update existing container
+                        container.setAttribute('data-session-id', session_id);
                     }
-                }
+                    
+                    // Update the display
+                    const display = document.getElementById('session-id-display');
+                    if (display) {
+                        display.textContent = `Session: ${session_id}`;
+                    }
 
-                // Also trigger a custom event so edit script knows session is ready (only if valid)
-                if (validSessionId) {
+                    // Trigger custom event so edit script knows session is ready
                     const event = new CustomEvent('sessionIdReady', {
                         detail: { sessionId: session_id }
                     });
                     document.dispatchEvent(event);
+                } else {
+                    console.warn('⚠️ Could not extract session_id from HTML');
                 }
             }
-            // IMPORTANT: Return the HTML string, not the session_id
-            // Use "-" if session_id is invalid
-            const sessionIdStr = String(session_id || '');
-            const safeSessionId = (sessionIdStr.includes('<function') || sessionIdStr.includes('<lambda')) ? '-' : session_id;
-            return '<div id="session-id-container" data-session-id="' + safeSessionId + '" style="display: none;"></div>';
+            // Return the HTML string as-is
+            return html_output;
         }
         """
     )
