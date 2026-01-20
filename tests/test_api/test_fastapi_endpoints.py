@@ -29,7 +29,7 @@ class TestFastAPIEndpoints:
         response = client.get("/")
         
         assert response.status_code == 200
-        data = response.json()
+        data = response.json() # Convert response body from json to python dictionary
         assert data == {"status": "running"}
     
     # Test that POST /chat/ endpoint accepts requests and returns streaming response
@@ -43,7 +43,7 @@ class TestFastAPIEndpoints:
         )
         
         assert response.status_code == 200
-        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8" # Check that the endpoint can stream responses token by token
     
     # Test that POST /chat/ endpoint requires message field in request body
     def test_chat_endpoint_requires_message_field(self, client, test_session_id):
@@ -56,7 +56,7 @@ class TestFastAPIEndpoints:
         
         # Should handle missing message field
         # FastAPI will validate and return 422 if message is required
-        assert response.status_code in [200, 422]
+        assert response.status_code == 422
 
     # Test that POST /chat/ endpoint streams response in chunks (token by token)
     def test_chat_endpoint_streams_response_in_chunks(self, client, test_session_id, sample_short_message):
@@ -101,12 +101,8 @@ class TestFastAPIEndpoints:
         # Each line should be valid JSON (or at least parseable)
         for line in lines:
             if line.strip():
-                # Try to parse as JSON
-                try:
-                    json.loads(line)
-                except json.JSONDecodeError:
-                    # Some lines might not be JSON (like empty lines)
-                    pass
+                # Parse as JSON
+                json.loads(line)
     
     # Test that POST /chat/edit/ endpoint accepts requests and returns streaming response
     def test_chat_edit_endpoint_accepts_post_request(self, client, test_session_id):

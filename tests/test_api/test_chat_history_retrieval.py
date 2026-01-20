@@ -25,12 +25,7 @@ class TestChatHistoryStorage:
     # the backend retrieves the history for that session, truncates it
     # to the most recent messages within MAX_HISTORY_TOKENS, and sends
     # exactly that slice to the OpenAI API.
-    def test_chat_history_truncated_to_max_tokens_and_sent_to_api(
-        self,
-        client,
-        test_session_id,
-        monkeypatch,
-    ):
+    def test_chat_history_truncated_to_max_tokens_and_sent_to_api(self, client, test_session_id, monkeypatch):
         # Seed the database with a long history for this session
         db = SessionLocal()
         try:
@@ -55,7 +50,7 @@ class TestChatHistoryStorage:
         finally:
             db.close()
 
-        # Monkeypatch OpenAI client to capture messages sent to the API
+        # Create a dictionary to store what the backend sends
         captured = {}
 
         import api  # Import here so monkeypatch targets the same module used by the app

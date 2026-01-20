@@ -65,6 +65,7 @@ class TestEditMessages:
             assert old_user_msg is not None, "Original user message should exist in database"
             assert old_bot_msg is not None, "Original bot response should exist in database"
             assert old_user_msg.content == original_message, "Original user message content should match"
+            
             old_user_id = old_user_msg.id
             old_user_created_at = old_user_msg.created_at
             old_bot_id = old_bot_msg.id
@@ -120,22 +121,9 @@ class TestEditMessages:
             
             # Verify the remaining message has different content (new message, not old one)
             remaining_bot_msg = all_assistant_msgs[0]
-            assert remaining_bot_msg.content != old_bot_content, "Remaining bot message should have different content (new message)"
             # Verify timestamp is newer (proves it's a new message, not the old one)
             assert remaining_bot_msg.created_at > old_bot_created_at, "New bot message should have newer timestamp than old one"
-            
-            # Get the new bot message (should be the only one)
-            new_bot_msg = (
-                db.query(ChatMessage)
-                .filter(ChatMessage.session_id == test_session_id)
-                .filter(ChatMessage.role == "assistant")
-                .order_by(ChatMessage.created_at.desc())
-                .first()
-            )
-            
-            assert new_bot_msg is not None, "New bot response should exist in database"
-            assert new_bot_msg.content != old_bot_content, "New bot response should be different from old one"
-            assert len(new_bot_msg.content) > 0, "New bot response should have content"
+            assert remaining_bot_msg.content != old_bot_content, "New bot response should be different from old one"
         finally:
             db.close()
     
@@ -176,6 +164,8 @@ class TestEditMessages:
                 .first()
             )
             assert initial_user_msg is not None
+            assert initial_user_msg.content == original_message
+
             initial_user_id = initial_user_msg.id
             initial_user_created_at = initial_user_msg.created_at
             
@@ -187,8 +177,8 @@ class TestEditMessages:
                 .first()
             )
             assert initial_bot_msg is not None
+
             initial_bot_content = initial_bot_msg.content
-            initial_bot_id = initial_bot_msg.id
             initial_bot_created_at = initial_bot_msg.created_at
         finally:
             db.close()
@@ -237,9 +227,11 @@ class TestEditMessages:
                 .first()
             )
             assert edited_bot_msg is not None
+
             edited_bot_id = edited_bot_msg.id
             edited_bot_content = edited_bot_msg.content
             edited_bot_created_at = edited_bot_msg.created_at
+
             # Verify edited bot message has newer timestamp than initial (proves it's a new message)
             assert edited_bot_created_at > initial_bot_created_at, "Edited bot message should have newer timestamp than initial"
         finally:
@@ -279,9 +271,9 @@ class TestEditMessages:
             retried_bot_msg = all_assistant_msgs[0]
             
             assert retried_bot_msg is not None, "Retried bot response should exist in database"
-            assert retried_bot_msg.content != edited_bot_content, "Retried bot response should be different from edited one"
             # Verify timestamp is newer than edited bot message (proves new message created)
             assert retried_bot_msg.created_at > edited_bot_created_at, "Retried bot message should have newer timestamp than edited one (proves new message)"
+            assert retried_bot_msg.content != edited_bot_content, "Retried bot response should be different from edited one"
             
             # Verify user message is still the edited one (not reverted)
             final_user_msg = (

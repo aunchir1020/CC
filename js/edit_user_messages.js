@@ -246,18 +246,7 @@
                 
                 textarea.style.height = newHeight + 'px';
                 
-                // When content exceeds max, limit the scrollable area
-                // Set max scroll position to prevent scrolling into button area
-                if (contentHeight > maxTextHeight) {
-                    // Calculate the maximum scroll position (6 rows of text visible)
-                    // scrollHeight - clientHeight gives us how much to scroll
-                    // Account for padding-bottom to keep last line visible
-                    const maxScrollTop = scrollHeight - textarea.clientHeight;
-                    // If scrolled too far, reset to max allowed
-                    if (textarea.scrollTop > maxScrollTop) {
-                        textarea.scrollTop = maxScrollTop;
-                    }
-                }
+                enforceScrollLimit();
             }
             
             // Prevent scrolling into button area - enforce strict limit
@@ -282,13 +271,6 @@
             textarea.addEventListener('input', function() {
                 setTimeout(enforceScrollLimit, 0);
             });
-            
-            // Wrap autoGrow to enforce scroll limit after height adjustment
-            const originalAutoGrow = autoGrow;
-            autoGrow = function() {
-                originalAutoGrow();
-                setTimeout(enforceScrollLimit, 0);
-            };
             
             // Call autoGrow initially to set correct height
             autoGrow();
@@ -419,11 +401,11 @@
                 }
             });
             
-            // Watch for textarea removal
+            // Watch for textarea removal (User either submits or cancels editing)
             if (messageElement) {
                 textareaObserver.observe(messageElement, {
-                    childList: true,
-                    subtree: true
+                    childList: true, // Watch for added or removed child nodes.
+                    subtree: true // Watch for added or removed child nodes.
                 });
             }
         }
@@ -821,7 +803,7 @@
                     throw new Error('Response body is not readable');
                 }
                 
-                const decoder = new TextDecoder();
+                const decoder = new TextDecoder(); // Converts raw binary data into readable text
                 let buffer = '';
                 let accumulatedResponse = '';
                 let firstToken = true;
@@ -955,7 +937,7 @@
                     injectEditButton();
                     lastUserMessageCount = userMessages.length;
                     setTimeout(() => {
-                        isInjecting = false;
+                        isInjecting = false; // Set to false until next new user message triggers injection
                     }, 100);
                 }, 300);
             }
@@ -978,7 +960,7 @@
         console.log('✅ Edit button script initialized');
     }
     
-    // Prevent multiple initializations
+    // Prevent multiple initializations (Prevent the script from running twice)
     if (window.editButtonInitialized) {
         console.log('📝 Edit button already initialized, skipping');
         return;
@@ -986,11 +968,13 @@
     window.editButtonInitialized = true;
     
     // Initialize when DOM is ready
+    // Case 1: Script runs before DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             console.log('📝 Edit button script: DOMContentLoaded');
             setupEditButton();
         });
+    // Case 2: Script runs after DOM is already ready
     } else {
         console.log('📝 Edit button script: DOM already ready');
         setupEditButton();

@@ -87,9 +87,9 @@
                             isCurrentlyStreaming = true;
                             startMonitoring();
                         }
-                        lastBotMessageLength = 0;
-                        lastContentCheck = now;
-                        loadingDotsDisappearedAt = 0; // Reset - dots are visible
+                        lastBotMessageLength = 0; // Set to 0 because new streaming has begun
+                        lastContentCheck = now; // Track the last time the bot message content changed
+                        loadingDotsDisappearedAt = 0; // Tracks when the loading dots disappear, set to 0 means dots are visible
                         // Reset any existing timeout when loading dots appear
                         if (streamingTimeout) {
                             clearTimeout(streamingTimeout);
@@ -108,139 +108,88 @@
             
             if (botMessages.length > 0) {
                 const lastBotMessage = botMessages[botMessages.length - 1];
-                if (lastBotMessage) {
-                    const currentText = lastBotMessage.textContent || '';
-                    const currentLength = currentText.trim().length;
-                    
-                    // If tokens are streaming and loading dots just disappeared, 
-                    // keep streaming state for a grace period to wait for first token
-                    // This prevents button from switching back too early
-                    if (isCurrentlyStreaming && !loadingDotsVisible && currentLength === 0) {
-                        // Track when loading dots disappeared
-                        if (loadingDotsDisappearedAt === 0) {
-                            loadingDotsDisappearedAt = now;
-                            console.log('📊 Loading dots disappeared - starting grace period');
-                        }
-                        
-                        const timeSinceDotsDisappeared = now - loadingDotsDisappearedAt;
-                        // INCREASED: Grace period after loading dots disappear
-                        if (timeSinceDotsDisappeared < GRACE_PERIOD_MS) {
-                            console.log(`⏳ Grace period: waiting for first token (${Math.round((GRACE_PERIOD_MS - timeSinceDotsDisappeared) / 1000)}s remaining)`);
-                            return true; // Still consider it streaming during grace period
-                        } else {
-                            // Grace period expired, no content arrived
-                            console.log('⏰ Grace period expired - no content received');
-                            isCurrentlyStreaming = false;
-                            lastBotMessageLength = 0;
-                            loadingDotsDisappearedAt = 0;
-                            stopMonitoring();
-                            if (streamingTimeout) {
-                                clearTimeout(streamingTimeout);
-                                streamingTimeout = null;
-                            }
-                            return false;
-                        }
+                if (!lastBotMessage) 
+                    return false;
+
+                const currentText = lastBotMessage.textContent || '';
+                const currentLength = currentText.trim().length;
+
+                // Handle grace period when loading dots disappear
+                if (isCurrentlyStreaming && !loadingDotsVisible && currentLength === 0) {
+                    if (loadingDotsDisappearedAt === 0) {
+                        loadingDotsDisappearedAt = now;
+                        console.log('📊 Loading dots disappeared - starting grace period');
                     }
-                    
-                    // If content starts arriving, reset the loading dots disappeared timestamp
-                    if (currentLength > 0 && loadingDotsDisappearedAt > 0) {
+
+                    const timeSinceDotsDisappeared = now - loadingDotsDisappearedAt;
+
+                    if (timeSinceDotsDisappeared < GRACE_PERIOD_MS) {
+                        console.log(`⏳ Grace period: waiting for first token (${Math.round((GRACE_PERIOD_MS - timeSinceDotsDisappeared) / 1000)}s remaining)`);
+                        return true;
+                    } else {
+                        console.log('⏰ Grace period expired - no content received');
+                        isCurrentlyStreaming = false;
+                        lastBotMessageLength = 0;
                         loadingDotsDisappearedAt = 0;
-                    }
-                    
-                    if (currentLength > lastBotMessageLength && lastBotMessageLength >= 0) {
-                        if (!isCurrentlyStreaming) {
-                            console.log(`📊 Streaming detected: content growing (${lastBotMessageLength} → ${currentLength} chars)`);
-                            isCurrentlyStreaming = true;
-                            startMonitoring();
-                        }
-                        lastBotMessageLength = currentLength;
-                        lastContentCheck = now;
-                        
+                        stopMonitoring();
                         if (streamingTimeout) {
                             clearTimeout(streamingTimeout);
+                            streamingTimeout = null;
                         }
-                        
-                        // INCREASED: Timeout for content changes
-                        streamingTimeout = setTimeout(() => {
-                            console.log(`📊 Streaming finished: no content change for ${STREAMING_TIMEOUT_MS / 1000}s`);
-                            isCurrentlyStreaming = false;
-                            lastBotMessageLength = currentLength;
-                            stopMonitoring();
-                            updateButtonState();
-                        }, STREAMING_TIMEOUT_MS);
-                        
+                        return false;
+                    }
+                }
+
+                // Reset grace period if content has started
+                if (currentLength > 0 && loadingDotsDisappearedAt > 0) {
+                    loadingDotsDisappearedAt = 0;
+                }
+
+                // Check if content is growing or streaming
+                if (currentLength > lastBotMessageLength) {
+                    if (!isCurrentlyStreaming) {
+                        console.log(`📊 Streaming detected: content growing (${lastBotMessageLength} → ${currentLength} chars)`);
+                        isCurrentlyStreaming = true;
+                        startMonitoring();
+                    }
+
+                    console.log(`📊 Streaming detected: content growing (${lastBotMessageLength} → ${currentLength} chars)`);
+                    lastBotMessageLength = currentLength;
+                    lastContentCheck = now;
+
+                    if (streamingTimeout) {
+                        clearTimeout(streamingTimeout);
+                    }
+                    streamingTimeout = setTimeout(() => {
+                        console.log(`📊 Streaming finished: no content change for ${STREAMING_TIMEOUT_MS / 1000}s`);
+                        isCurrentlyStreaming = false;
+                        stopMonitoring();
+                        updateButtonState();
+                    }, STREAMING_TIMEOUT_MS);
+
+                    return true;
+                }
+
+                // Handle ongoing streaming with no growth
+                if (isCurrentlyStreaming && currentLength > 0) {
+                    const timeSinceLastChange = now - lastContentCheck;
+                    if (timeSinceLastChange < STREAMING_TIMEOUT_MS) {
                         return true;
-                    }
-                    
-                    if (isCurrentlyStreaming) {
-                        if (currentLength > 0) {
-                            if (currentLength !== lastBotMessageLength) {
-                                lastBotMessageLength = currentLength;
-                                lastContentCheck = now;
-                                
-                                if (streamingTimeout) {
-                                    clearTimeout(streamingTimeout);
-                                }
-                                streamingTimeout = setTimeout(() => {
-                                    isCurrentlyStreaming = false;
-                                    lastBotMessageLength = currentLength;
-                                    stopMonitoring();
-                                    updateButtonState();
-                                }, STREAMING_TIMEOUT_MS);
-                                
-                                return true;
-                            }
-                            
-                            const timeSinceLastChange = now - lastContentCheck;
-                            // INCREASED: Timeout to handle long messages with pauses
-                            if (timeSinceLastChange < STREAMING_TIMEOUT_MS) {
-                                return true;
-                            } else {
-                                // Only stop if no change for the specified timeout
-                                console.log(`📊 Streaming finished: no content change for ${STREAMING_TIMEOUT_MS / 1000}s`);
-                                isCurrentlyStreaming = false;
-                                lastBotMessageLength = currentLength;
-                                stopMonitoring();
-                                if (streamingTimeout) {
-                                    clearTimeout(streamingTimeout);
-                                    streamingTimeout = null;
-                                }
-                                return false;
-                            }
-                        } else {
-                            // No content yet, but tokens are streaming
-                            // Check if loading dots just disappeared (grace period)
-                            if (loadingDotsDisappearedAt === 0) {
-                                loadingDotsDisappearedAt = now;
-                                console.log('📊 Loading dots disappeared - starting grace period');
-                            }
-                            
-                            const timeSinceDotsDisappeared = now - loadingDotsDisappearedAt;
-                            // INCREASED: Grace period after loading dots disappear
-                            if (timeSinceDotsDisappeared < GRACE_PERIOD_MS) {
-                                // Still in grace period after loading dots disappeared
-                                // Wait for first token to arrive
-                                console.log(`⏳ Grace period: waiting for content (${Math.round((GRACE_PERIOD_MS - timeSinceDotsDisappeared) / 1000)}s remaining)`);
-                                return true;
-                            } else {
-                                // Grace period expired, no content arrived
-                                console.log('⏰ Grace period expired - no content received');
-                                isCurrentlyStreaming = false;
-                                lastBotMessageLength = 0;
-                                loadingDotsDisappearedAt = 0;
-                                stopMonitoring();
-                                if (streamingTimeout) {
-                                    clearTimeout(streamingTimeout);
-                                    streamingTimeout = null;
-                                }
-                                return false;
-                            }
+                    } else {
+                        console.log(`📊 Streaming finished: no content change for ${STREAMING_TIMEOUT_MS / 1000}s`);
+                        isCurrentlyStreaming = false;
+                        stopMonitoring();
+                        if (streamingTimeout) {
+                            clearTimeout(streamingTimeout);
+                            streamingTimeout = null;
                         }
+                        return false;
                     }
-                    
-                    if (currentLength > 0 && lastBotMessageLength !== currentLength) {
-                        lastBotMessageLength = currentLength;
-                    }
+                }
+
+                // Update lastBotMessageLength if necessary
+                if (currentLength > 0 && lastBotMessageLength !== currentLength) {
+                    lastBotMessageLength = currentLength;
                 }
             }
             
@@ -274,7 +223,8 @@
             button.style.opacity = '1';
             button.style.backgroundColor = '#2563eb';
             
-            // Create attribute observer if not exists and we're streaming
+            // Only create the observer if we are streaming
+            // And only if we have not already created one
             if (!buttonAttributeObserver && isCurrentlyStreaming) {
                 buttonAttributeObserver = new MutationObserver((mutations) => {
                     // Only react if we're still streaming
@@ -392,7 +342,7 @@
                 button.style.borderRadius = '50%';
                 button.style.aspectRatio = '1 / 1';
                 
-                // Ensure overflow doesn't clip our square
+                // Ensure overflow doesn't clip our square, to show a square overlay or icon on top of the button
                 const computedStyle = window.getComputedStyle(button);
                 if (computedStyle.overflow === 'hidden' || computedStyle.overflow === 'clip') {
                     button.style.overflow = 'visible';
@@ -682,17 +632,19 @@
                 stopObserver = new MutationObserver((mutations) => {
                     let shouldUpdate = false;
                     for (const mutation of mutations) {
+                        // Catch entirely new messages or loading indicators
                         if (mutation.addedNodes.length > 0) {
                             for (const node of mutation.addedNodes) {
                                 if (node.nodeType === Node.ELEMENT_NODE) {
                                     const classes = node.className || '';
                                     if (classes.includes('loading') || classes.includes('message') || classes.includes('bot')) {
-                                        shouldUpdate = true;
+                                        shouldUpdate = true; // Marks that something happened in the chat that could require updating the button, e.g. send -> stop if bot started streaming
                                         break;
                                     }
                                 }
                             }
                         }
+                        // Catch incremental updates inside a message like bot streaming tokens
                         if (mutation.type === 'characterData' || mutation.type === 'childList') {
                             const target = mutation.target;
                             if (target && (target.closest && target.closest('.message.bot, .message-wrap.bot'))) {
@@ -724,7 +676,8 @@
                     const wasStreaming = isCurrentlyStreaming;
                     const nowStreaming = isStreaming();
                     
-                    // Also check if editing state changed
+                    // nowStreaming - bot is actively streaming tokens right now
+                    // wasStreaming - the streaming might have just stopped, want to update the button from stop → send
                     if (nowStreaming || wasStreaming || isEditingMessage()) {
                         updateButtonState();
                     }

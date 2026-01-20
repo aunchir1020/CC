@@ -85,17 +85,14 @@ class TestOpenAIIntegration:
         # Verify each line is a valid JSON token message
         token_count = 0
         for line in lines:
-            try:
-                data = json.loads(line)
-                if "token" in data:
-                    token_count += 1
-            except json.JSONDecodeError:
-                pass
+            data = json.loads(line)
+            if "token" in data:
+                token_count += 1
         
         # Should have multiple tokens
         assert token_count > 1, f"Should receive multiple tokens, got {token_count}"
     
-    # Test that OpenAI API responses respect the MAX_MODEL_RESPONSE_TOKENS limit (800 tokens)
+    # Test that OpenAI API responses respect the MAX_MODEL_RESPONSE_TOKENS limit (4096 tokens)
     def test_openai_response_respects_max_token_limit(self, client, test_session_id):
         # Send a message that should generate a response
         response = client.post(

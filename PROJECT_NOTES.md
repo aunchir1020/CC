@@ -1,7 +1,7 @@
 ### Tech Stack
 - **Frontend** built with **Gradio**, **HTML**, **CSS** & **Javascript**
 - **Backend** as a separate **FastAPI** service that talks to **OpenAI** (ChatGPT 3.5 + Whisper).
-- **SQLite + SQLAlchemy** used to store chat history
+- **Supabase + SQLAlchemy** used to store chat history (previously used SQLite)
 
 ### Architecture Overview
 
@@ -10,14 +10,14 @@
 
 - **Backend** (`api.py`)
   - FastAPI app with endpoints:
-    - **`POST /chat/`** – stream a response from OpenAI, saving both user and assistant messages into SQLite.
+    - **`POST /chat/`** – stream a response from OpenAI, saving both user and assistant messages into Supabase.
     - **`POST /chat/edit/`** – edit the last user message, delete the corresponding assistant message, and regenerate a new assistant reply using the updated history.
     - **`POST /chat/retry/`** – retry the last assistant message by deleting it and re‑calling OpenAI with the same prior user message.
     - **`POST /chat/stop/{session_id}`** – mark a streaming session as cancelled so the generator stops early.
     - **`POST /speech-to-text/`** – send uploaded audio to Whisper (`whisper-1`) and return transcribed text in input textarea.
 
 - **Database Layer** (`database.py`)
-  - SQLite database
+  - Supabase database
   - `ChatMessage` model:
     - `id`: primary key.
     - `session_id`: groups messages per chat tab.
@@ -31,6 +31,7 @@
   - Chose **OpenAI** as the LLM provider for stable streaming support and predictable performance. Have experience with Local LLMs (e.g., Ollama), heavily depending on hardware memory so less reliable for development and deployment.
   - Selected **Gradio** for the frontend to enable rapid iteration while still allowing integration with HTML, CSS, and JavaScript for custom UI behavior. Have experience with Streamlit, found that it is restrictive for advanced layout control and client-side interactions.
   - Used **SQLite with SQLAlchemy** for chat history storage, leveraging prior experience with SQLite in mobile application development and its simplicity for prototyping session-based persistence.
+  - Switched to use **Supabase with SQLAlchemy**, since SQLite is local by default and not designed for high-concurrency in production.
 
 - **2. Multi-turn conversation and context handling**
   - The frontend was designed around **multi-turn conversation** from the start, requiring the backend to resend prior messages as context to the LLM on each request.
@@ -60,7 +61,7 @@
 - **5. Deployment considerations and trade-offs**
   - Due to local hardware memory limitations, **Docker images were not built locally**. The application was deployed using **Render** which supports Docker-based deployments.
   - Since Render only allows one exposed port per service, the **frontend and backend are deployed as separate services**, with the frontend communicating with the backend via HTTP APIs.
-  - In the deployment environment, SQLite storage is ephemeral and not persisted across restarts. Given time constraints, the storage backend was **not migrated to a managed database**. Instead, the **session ID is visibly displayed** in the UI to demonstrate that refreshing the page or opening a new tab creates a new chat session, making session scoping explicit.
+  - In the deployment environment, **chat history is now persisted using Supabase** instead of ephemeral SQLite storage. This allows chat sessions to survive restarts and redeploys.
 
 ### Implementation Walkthrough
 
@@ -153,9 +154,6 @@
   - **Docker Configuration**:
     - Uses `python:3.11-slim` base image for a lightweight container.
     - Copies application code and installs dependencies from `requirements.txt`.
-    - Creates `/app/data` directory for SQLite database storage.
-    - Exposes ports 8000 (FastAPI backend) and 7860 (Gradio frontend).
-    - Uses `start.sh` script as the entry point to start the application.
   - **Render Deployment**:
     - Two separate web services are deployed on Render: one for the frontend (Gradio) and one for the backend (FastAPI).
     - Each service is built from the same Docker image (using the `Dockerfile`), but they run independently.
@@ -185,7 +183,7 @@ Uses **pytest** as the testing framework with the following approach:
   - **`sample_long_message` fixture**: Provides a message exceeding token limits (1200 words) for error testing.
 
 - **Testing Approach**
-  - **Integration Testing**: Most tests make actual API calls to the FastAPI backend and interact with the real SQLite database
+  - **Integration Testing**: Most tests make actual API calls to the FastAPI backend and interact with the real Supabase database
   - **Real OpenAI API Calls**: Tests use actual OpenAI API calls (not mocked) to verify functionality.
   - **Monkeypatching**: Some tests (e.g., `test_chat_history_retrieval.py`) use `pytest.monkeypatch` to intercept and inspect OpenAI API calls, allowing verification of what data is sent to the API without making real requests.
   - **Database Verification**: Tests are featured to query the database directly using SQLAlchemy to verify that messages are correctly stored, updated, or deleted after API operations.
@@ -225,7 +223,7 @@ Uses **pytest** as the testing framework with the following approach:
 
 - **`test_send_messages_db.py`**
   - Ensures that a user can send a message via the FastAPI /chat/ endpoint and receive a reply via OpenAI, and that both user and bot messages are correctly stored in the database.
-    - **`test_user_sends_short_message_and_receives_bot_reply`** verifies the complete flow of sending a message, receiving a streaming response and persisting messages in SQLite.
+    - **`test_user_sends_short_message_and_receives_bot_reply`** verifies the complete flow of sending a message, receiving a streaming response and persisting messages in Supabase.
 
 - **`test_long_message_error.py`**
   - Verifies that the system properly handle the situation of a user sends a message exceeding the allowed token limit (1200 tokens).
@@ -252,7 +250,7 @@ Uses **pytest** as the testing framework with the following approach:
 
 ### Limitations & Bugs
 - The app may occasionally behave inconsistently on Render due to container restarts and hosting environment constraints.
-- SQLite storage on Render is ephemeral, meaning all chat history may be lost when the service restarts or redeploys.
+- SQLite storage on Render is ephemeral, meaning all chat history may be lost when the service restarts or redeploys. (Solved by switching to use Supabase)
 - Test coverage is limited to core functionalities; some edge cases and UI interactions are not fully covered, and there is currently no automated UI testing in place.
 - The stop button switches back to the send button too quickly, making it difficult for users to effectively interrupt the assistant’s streaming response.
 - Regenerating an edited message with a shorter response does not fully clear the old content, leaving leftover text from the previous response visible in the UI.

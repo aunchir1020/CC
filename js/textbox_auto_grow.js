@@ -44,7 +44,7 @@
         // Apply the new height
         textbox.style.setProperty('height', newHeight + 'px', 'important');
         
-        // Always enforce scroll limit after height adjustment
+        // Wait until the browser applies the new height and layout, then adjust scrollTop safely
         requestAnimationFrame(function() {
             enforceScrollLimit(textbox);
             setTimeout(function() {
@@ -81,11 +81,6 @@
                     textbox.scrollTop = maxScrollTop;
                 }
             });
-        }
-        
-        const standardMax = Math.max(0, scrollHeight - clientHeight);
-        if (currentScrollTop > standardMax) {
-            textbox.scrollTop = Math.min(maxScrollTop, standardMax);
         }
     }
     
@@ -161,7 +156,8 @@
             const scrollableTextHeight = scrollHeight - paddingBottom;
             const maxScrollTop = Math.max(0, scrollableTextHeight - visibleTextArea);
             const currentScroll = welcomeTextbox.scrollTop;
-            const proposedScroll = currentScroll + e.deltaY;
+            // proposedScroll - where the scrollTop would be if we let the browser handle it naturally
+            const proposedScroll = currentScroll + e.deltaY; // e.deltaY - how much the user wants to scroll this event
             
             if (proposedScroll > maxScrollTop) {
                 e.preventDefault();
@@ -174,7 +170,7 @@
                 welcomeTextbox.scrollTop = 0;
                 return false;
             }
-        }, { passive: false });
+        }, { passive: false }); // Allow calling e.preventDefault() to stop the browser’s default scrolling behavior
         
         // Prevent keyboard scrolling into button area
         welcomeTextbox.addEventListener('keydown', function(e) {
@@ -186,6 +182,7 @@
         
         // Add event listeners for auto-grow
         welcomeTextbox.addEventListener('input', debouncedAutoGrow);
+        // Using setTimeout(..., 10) ensures debouncedAutoGrow runs after the pasted text is actually in the textarea
         welcomeTextbox.addEventListener('paste', function() {
             setTimeout(debouncedAutoGrow, 10);
         });
@@ -193,20 +190,11 @@
         // Continuously enforce scroll limit
         setInterval(function() {
             if (welcomeTextbox) {
-                const computedStyle = window.getComputedStyle(welcomeTextbox);
-                const paddingBottom = parseInt(computedStyle.paddingBottom, 10) || 80;
                 const scrollHeight = welcomeTextbox.scrollHeight;
                 const clientHeight = welcomeTextbox.clientHeight;
                 
                 if (scrollHeight > clientHeight) {
                     enforceScrollLimit(welcomeTextbox);
-                    const visibleTextArea = clientHeight - paddingBottom;
-                    const scrollableTextHeight = scrollHeight - paddingBottom;
-                    const maxScrollTop = Math.max(0, scrollableTextHeight - visibleTextArea);
-                    
-                    if (welcomeTextbox.scrollTop > maxScrollTop) {
-                        welcomeTextbox.scrollTop = maxScrollTop;
-                    }
                 }
             }
         }, 10);
@@ -215,7 +203,7 @@
         setTimeout(function() {
             autoGrow(welcomeTextbox);
             setTimeout(() => autoGrow(welcomeTextbox), 50);
-        }, 0);
+        }, 0); // Wait until the current JavaScript execution finishes and the browser can update layout
         
         welcomeInitialized = true;
         console.log('✅ Welcome textbox auto-grow initialized', welcomeTextbox);
@@ -310,20 +298,11 @@
         // Continuously enforce scroll limit
         setInterval(function() {
             if (chatTextbox) {
-                const computedStyle = window.getComputedStyle(chatTextbox);
-                const paddingBottom = parseInt(computedStyle.paddingBottom, 10) || 80;
                 const scrollHeight = chatTextbox.scrollHeight;
                 const clientHeight = chatTextbox.clientHeight;
                 
                 if (scrollHeight > clientHeight) {
                     enforceScrollLimit(chatTextbox);
-                    const visibleTextArea = clientHeight - paddingBottom;
-                    const scrollableTextHeight = scrollHeight - paddingBottom;
-                    const maxScrollTop = Math.max(0, scrollableTextHeight - visibleTextArea);
-                    
-                    if (chatTextbox.scrollTop > maxScrollTop) {
-                        chatTextbox.scrollTop = maxScrollTop;
-                    }
                 }
             }
         }, 10);

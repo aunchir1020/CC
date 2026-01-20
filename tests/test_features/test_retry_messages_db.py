@@ -50,6 +50,7 @@ class TestRetryMessages:
             )
             
             assert initial_bot_msg is not None, "Initial bot response should exist in database"
+            
             initial_bot_id = initial_bot_msg.id
             initial_bot_content = initial_bot_msg.content
             initial_bot_created_at = initial_bot_msg.created_at
@@ -91,10 +92,10 @@ class TestRetryMessages:
             retried_bot_msg = all_assistant_msgs[0]
             
             assert retried_bot_msg is not None, "Retried bot response should exist in database"
-            assert retried_bot_msg.content != initial_bot_content, "Retried bot response should be different from initial one"
             assert len(retried_bot_msg.content) > 0, "Retried bot response should have content"
             # Verify timestamp is newer (proves it's a new message, not the old one)
             assert retried_bot_msg.created_at > initial_bot_created_at, "Retried bot message should have newer timestamp than initial (proves new message created)"
+            assert retried_bot_msg.content != initial_bot_content, "Retried bot response should be different from initial one"
         finally:
             db.close()
 
@@ -126,6 +127,7 @@ class TestRetryMessages:
                 .first()
             )
             assert initial_bot_msg is not None
+            
             initial_bot_content = initial_bot_msg.content
             initial_bot_created_at = initial_bot_msg.created_at
         finally:

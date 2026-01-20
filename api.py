@@ -41,18 +41,18 @@ def count_message_tokens(message: dict) -> int:
     # Add overhead for message formatting (approximately 4 tokens per message)
     return role_tokens + content_tokens + 4
 
+# Global dictionary to track active streaming sessions and cancellation flags
+# Format: {session_id: threading.Event()}
+streaming_sessions = {}
+streaming_lock = threading.Lock()
+
 # Create a client object for the OpenAI API
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Initialize the FastAPI App
 app = FastAPI(title="LLM Chat Interface")
 
-# Global dictionary to track active streaming sessions and cancellation flags
-# Format: {session_id: threading.Event()}
-streaming_sessions = {}
-streaming_lock = threading.Lock()
-
-# ADD CORS Middleware
+# ADD CORS Middleware, allow frontend to access backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins (for development)
@@ -67,7 +67,7 @@ def health():
 
 # Request Schema
 class ChatRequest(BaseModel):
-    session_id: Optional[str] = None
+    session_id: str
     message: str
 
 def chat_stream(session_id: str, user_message: str, db: Session):
@@ -92,7 +92,7 @@ def chat_stream(session_id: str, user_message: str, db: Session):
         local_db.add(user_msg)
         local_db.commit()
         
-        # Check user message token count (max 1000 tokens)
+        # Check user message token count (max 1200 tokens)
         user_message_tokens = count_tokens(user_message)
         if user_message_tokens > MAX_USER_MESSAGE_TOKENS:
             error_msg = "The message you submitted was too long, please edit it and resubmit."
@@ -181,6 +181,7 @@ def chat_stream(session_id: str, user_message: str, db: Session):
                         # Break out of loop - this will end the generator and close the stream
                         break
                     
+                    # Check if any new content to append
                     if event.choices and event.choices[0].delta:
                         content = event.choices[0].delta.content
                         if content:
@@ -404,7 +405,6 @@ def chat_edit_stream(session_id: str, edited_message: str, db: Session):
                     model=MODEL_NAME,
                     messages=chat_history,
                     stream=True,
-                    temperature=0.7,
                     max_tokens=MAX_MODEL_RESPONSE_TOKENS  # Limit response to 4096 tokens
                 )
             except Exception as api_error:

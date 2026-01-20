@@ -1,19 +1,18 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from env import DATABASE_URL, DB_SCHEMA
 
-# Set up SQLite database
-# Use data directory if it exists (for Docker deployments), otherwise current directory
-import os
-db_path = "data/chat.db" if os.path.exists("data") else "chat.db"
-engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+# Create engine using PostgreSQL
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
-# Malaysia timezone (UTC+8)
-MALAYSIA_TZ = timezone(timedelta(hours=8))
+# Malaysia timezone
+MALAYSIA_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
 def malaysia_now():
-    """Get current datetime in Malaysia timezone"""
+    """Return current Malaysia time with tzinfo"""
     return datetime.now(MALAYSIA_TZ)
 
 # Base class for ORM models
@@ -22,12 +21,13 @@ Base = declarative_base()
 # ORM model for chat messages
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
+    __table_args__ = {"schema": DB_SCHEMA}
     
-    id = Column(Integer, primary_key=True, index=True)     # Auto-increment ID
-    session_id = Column(String, index=True)                # Unique identifier for a chat session
-    role = Column(String)                                  # "user" or "assistant"
-    content = Column(Text)                                 # Message text
-    created_at = Column(DateTime, default=malaysia_now) # Timestamp for each message
+    id = Column(Integer, primary_key=True, index=True) # Auto-increment ID
+    session_id = Column(String, index=True) # Unique identifier for a chat session
+    role = Column(String) # "user" or "assistant"
+    content = Column(Text) # Message text
+    created_at = Column(DateTime(timezone=True), default=malaysia_now) # Timestamp
 
 # Create the table if it doesn't exist
 Base.metadata.create_all(bind=engine)

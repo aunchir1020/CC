@@ -216,7 +216,6 @@ def load_js():
     if os.path.exists(edit_js_path):
         with open(edit_js_path, 'r', encoding='utf-8') as f:
             edit_js = f.read()
-            edit_js = edit_js.replace("'__SESSION_ID__'", "window.__SESSION_ID__")
             edit_js = edit_js.replace("__API_BASE_URL__", js_api_base)
             js_content_parts.append(edit_js)
 
@@ -225,7 +224,6 @@ def load_js():
     if os.path.exists(stop_js_path):
         with open(stop_js_path, 'r', encoding='utf-8') as f:
             stop_js = f.read()
-            stop_js = stop_js.replace("'__SESSION_ID__'", "window.__SESSION_ID__")
             stop_js = stop_js.replace("__API_BASE_URL__", js_api_base)
             js_content_parts.append(stop_js)
 
@@ -464,6 +462,9 @@ def respond(message, chat_history, session_id):
         for partial, is_stopped in chat_with_llm(message, chat_history, session_id):
             if is_stopped:
                 stopped = is_stopped
+                # if partial:
+                #     chat_history[-1]["content"] = partial
+                #     yield chat_history
                 break  # Stop streaming loop if stopped
             
             # Safety check: ensure chat_history has assistant message
@@ -675,11 +676,19 @@ def retry_last_response(chat_history, session_id):
         yield chat_history, session_id
         
         # Call retry API
-        payload = {"session_id": session_id, "message": ""}
+        payload = {
+            "session_id": session_id, 
+            "message": ""
+        }
         print(f"📤 Retry: Calling API at {RETRY_API_URL} with session_id: {session_id}")
         
         try:
-            response = requests.post(RETRY_API_URL, json=payload, stream=True, timeout=60)
+            response = requests.post(
+                RETRY_API_URL, 
+                json=payload, 
+                stream=True, 
+                timeout=60
+            )
             
             if response.status_code != 200:
                 error_msg = f"Error: API returned status code {response.status_code}"

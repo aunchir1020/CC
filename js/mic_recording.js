@@ -37,7 +37,7 @@
             }
         });
         
-        // Store the first button as the primary reference (for backward compatibility)
+        // Keep a reference to the main mic button, even if there are multiple buttons on the page
         microphoneButton = micButtons[0];
         
         // Find textbox (will be updated based on which button is clicked)
@@ -168,11 +168,14 @@
             // Request microphone access with proper error handling
             console.log('🎤 Requesting microphone access...');
             
+            // To access the microphone or camera
             // Check if getUserMedia is available
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 throw new Error('getUserMedia is not supported in this browser');
             }
             
+            // Request microphone access
+            // Return a MediaStream (container of live media)
             currentStream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
                     echoCancellation: true,
@@ -184,7 +187,7 @@
             
             console.log('✅ Microphone access granted');
             
-            // Create MediaRecorder
+            // Tell the MediaRecorder what format to encode the audio in
             const options = {
                 mimeType: 'audio/webm;codecs=opus'
             };
@@ -195,10 +198,12 @@
                 options.mimeType = '';
             }
             
+            // Create MediaRecorder
             mediaRecorder = new MediaRecorder(currentStream, options);
             
             audioChunks = [];
             
+            // Called every time the recorder has a chunk of recorded audio ready
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data && event.data.size > 0) {
                     audioChunks.push(event.data);
@@ -206,11 +211,12 @@
                 }
             };
             
+            // Run when recording stops
             mediaRecorder.onstop = async () => {
                 // Stop all tracks to release microphone
                 if (currentStream) {
                     currentStream.getTracks().forEach(track => {
-                        track.stop();
+                        track.stop(); // Stop actual device, release the mic
                         console.log('🛑 Track stopped:', track.kind);
                     });
                     currentStream = null;
